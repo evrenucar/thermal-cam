@@ -1,0 +1,3 @@
+[submodule "esp32-trial/ThermalPrinter"]
+	path = esp32-trial/ThermalPrinter
+	url = git@github.com:BinaryWorlds/ThermalPrinter.git
