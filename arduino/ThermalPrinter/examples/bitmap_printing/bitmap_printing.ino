@@ -41,15 +41,34 @@ void setupLedFlash(int pin) {
 
 
 
-void convertTo1BPP_Dither(const uint8_t *input, uint8_t *output) {
+// Helper function to convert an RGB565 pixel to an 8-bit grayscale value.
+static inline uint8_t rgb565_to_gray(uint16_t pixel) {
+    // Extract the RGB components.
+    uint8_t r = (pixel >> 11) & 0x1F;
+    uint8_t g = (pixel >> 5)  & 0x3F;
+    uint8_t b = pixel & 0x1F;
 
+    // Scale the components to 8 bits.
+    r = (r << 3) | (r >> 2);
+    b = (b << 3) | (b >> 2);
+    g = (g << 2) | (g >> 4);
+
+    // Use the standard luminosity method to compute grayscale.
+    return (uint8_t)((r * 299 + g * 587 + b * 114) / 1000);
+}
+
+void convertTo1BPP_Dither(const uint8_t *input, uint8_t *output) {
+    // Assume width and height are defined externally,
+    // and ztemp is an int16_t array with at least width*height elements.
     
-    // Use a temporary buffer with int16_t to hold pixel values and accumulated error.
-    // This avoids floats while allowing negative error values.
+    // Interpret the input as an array of 16-bit RGB565 pixels.
+    const uint16_t *rgb565 = (const uint16_t *)input;
     
-    // Copy input grayscale values into the temporary buffer.
+    // Convert each RGB565 pixel to grayscale and copy it into the temporary buffer.
     for (int i = 0; i < width * height; i++) {
-        ztemp[i] = input[i];
+        uint16_t pixel = rgb565[i];
+        uint8_t gray = rgb565_to_gray(pixel);
+        ztemp[i] = gray;
     }
     
     // Apply Floyd–Steinberg dithering using integer arithmetic.
@@ -62,40 +81,37 @@ void convertTo1BPP_Dither(const uint8_t *input, uint8_t *output) {
             int error = oldPixel - newPixel;
             ztemp[idx] = newPixel;
             
-            // Distribute the error to neighboring pixels:
-            // Right pixel gets 7/16 of the error.
+            // Distribute the error to neighboring pixels.
             if (x + 1 < width)
                 ztemp[y * width + (x + 1)] += (error * 7) / 16;
-            // Bottom-left gets 3/16.
             if (x - 1 >= 0 && y + 1 < height)
                 ztemp[(y + 1) * width + (x - 1)] += (error * 3) / 16;
-            // Bottom gets 5/16.
             if (y + 1 < height)
                 ztemp[(y + 1) * width + x] += (error * 5) / 16;
-            // Bottom-right gets 1/16.
             if (x + 1 < width && y + 1 < height)
                 ztemp[(y + 1) * width + (x + 1)] += (error * 1) / 16;
         }
     }
     
     // Pack the dithered binary image into the output buffer.
-    // The output buffer is organized in pages of 8 rows each.
-    // For each column and page, pack 8 pixels (one per bit) into a byte.
-    for (int page = 0; page < height / 8; page++) {
-        for (int x = 0; x < width; x++) {
+    // Now the output is organized row-wise, with each byte representing 8 horizontal pixels.
+    int bytesPerRow = width / 8;
+    for (int y = 0; y < height; y++) {
+        for (int xByte = 0; xByte < bytesPerRow; xByte++) {
             uint8_t byte = 0;
             for (int bit = 0; bit < 8; bit++) {
-                int y = page * 8 + bit;
+                int x = xByte * 8 + bit;
                 int idx = y * width + x;
                 // Set the bit if the pixel is white (255).
                 if (ztemp[idx] == 255) {
-                    byte |= (1 << (7 - bit)); // MSB is the top pixel.
+                    byte |= (1 << (7 - bit)); // MSB corresponds to the leftmost pixel.
                 }
             }
-            output[page * width + x] = byte;
+            output[y * bytesPerRow + xByte] = byte;
         }
     }
 }
+
 
 void setup() {
   micros();
@@ -135,7 +151,7 @@ void setup() {
   config.frame_size = FRAMESIZE_240X240;
   // config.pixel_format = PIXFORMAT_GRAYSCALE;  // for streaming
   config.pixel_format = PIXFORMAT_RGB565; // for face detection/recognition
-  config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
+  config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;  
   config.fb_location = CAMERA_FB_IN_PSRAM;
   config.jpeg_quality = 12;
   config.fb_count = 1;
