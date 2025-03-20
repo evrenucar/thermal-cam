@@ -19,8 +19,8 @@
 // Same dimensions: 40 wide × 37 tall = 1480 bits total = 185 bytes
 const uint16_t amongUsBitmapWidth  = 384;
 const uint16_t amongUsBitmapHeight = 512;
-      const int width = 240;
-    const int height = 240;
+const int width = 240;
+const int height = 240;
 int16_t ztemp[width * height];
 
 
@@ -40,78 +40,142 @@ void setupLedFlash(int pin) {
 }
 
 
+#define MAX_WIDTH 320
 
-// Helper function to convert an RGB565 pixel to an 8-bit grayscale value.
-static inline uint8_t rgb565_to_gray(uint16_t pixel) {
-    // Extract the RGB components.
+
+// Two static (file-scope) line buffers, each up to MAX_WIDTH bytes
+static uint8_t currentLine[MAX_WIDTH];
+static uint8_t nextLine[MAX_WIDTH];
+
+// Helper: Convert one RGB565 pixel to 8-bit grayscale
+static inline uint8_t rgb565_to_gray(uint16_t pixel)
+{
+    // Extract 5-bit Red and Blue, 6-bit Green
     uint8_t r = (pixel >> 11) & 0x1F;
     uint8_t g = (pixel >> 5)  & 0x3F;
-    uint8_t b = pixel & 0x1F;
+    uint8_t b =  pixel        & 0x1F;
 
-    // Scale the components to 8 bits.
-    r = (r << 3) | (r >> 2);
-    b = (b << 3) | (b >> 2);
-    g = (g << 2) | (g >> 4);
+    // Scale up to 8 bits
+    r = (r << 3) | (r >> 2);  // 5 bits -> 8
+    g = (g << 2) | (g >> 4);  // 6 bits -> 8
+    b = (b << 3) | (b >> 2);  // 5 bits -> 8
 
-    // Use the standard luminosity method to compute grayscale.
-    return (uint8_t)((r * 299 + g * 587 + b * 114) / 1000);
+    // Standard luminosity approximation
+    //  (0.299 * R + 0.587 * G + 0.114 * B)
+    return 255 - static_cast<uint8_t>((299*r + 587*g + 114*b) / 1000);
 }
 
-void convertTo1BPP_Dither(const uint8_t *input, uint8_t *output) {
-    // Assume width and height are defined externally,
-    // and ztemp is an int16_t array with at least width*height elements.
-    
-    // Interpret the input as an array of 16-bit RGB565 pixels.
-    const uint16_t *rgb565 = (const uint16_t *)input;
-    
-    // Convert each RGB565 pixel to grayscale and copy it into the temporary buffer.
-    for (int i = 0; i < width * height; i++) {
-        uint16_t pixel = rgb565[i];
-        uint8_t gray = rgb565_to_gray(pixel);
-        ztemp[i] = gray;
+void convertTo1BPP_Dither(const uint8_t *input, uint8_t *output)
+{
+    // Safety check: ensure we don't overrun our static arrays
+    if (width > MAX_WIDTH) {
+        // Handle error (e.g., print message or return).
+        fprintf(stderr, "width=%d exceeds MAX_WIDTH=%d!\n", width, MAX_WIDTH);
+        return;
     }
-    
-    // Apply Floyd–Steinberg dithering using integer arithmetic.
-    // We use a threshold of 128 to decide between black (0) and white (255).
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            int idx = y * width + x;
-            int oldPixel = ztemp[idx];
-            int newPixel = (oldPixel >= 128) ? 255 : 0;
-            int error = oldPixel - newPixel;
-            ztemp[idx] = newPixel;
-            
-            // Distribute the error to neighboring pixels.
-            if (x + 1 < width)
-                ztemp[y * width + (x + 1)] += (error * 7) / 16;
-            if (x - 1 >= 0 && y + 1 < height)
-                ztemp[(y + 1) * width + (x - 1)] += (error * 3) / 16;
-            if (y + 1 < height)
-                ztemp[(y + 1) * width + x] += (error * 5) / 16;
-            if (x + 1 < width && y + 1 < height)
-                ztemp[(y + 1) * width + (x + 1)] += (error * 1) / 16;
+
+    // Function to convert a single row from RGB565 to grayscale into a given buffer.
+    auto fillGrayRow = [&](int rowIndex, uint8_t* rowBuffer) {
+        // If rowIndex is beyond the image, fill with 0 (or mid gray),
+        // so any "downward" error doesn't blow up real data.
+        if (rowIndex >= height) {
+            for (int x = 0; x < width; x++) {
+                rowBuffer[x] = 0;
+            }
+            return;
         }
-    }
-    
-    // Pack the dithered binary image into the output buffer.
-    // Now the output is organized row-wise, with each byte representing 8 horizontal pixels.
-    int bytesPerRow = width / 8;
-    for (int y = 0; y < height; y++) {
-        for (int xByte = 0; xByte < bytesPerRow; xByte++) {
-            uint8_t byte = 0;
-            for (int bit = 0; bit < 8; bit++) {
+        // Each pixel is 16 bits in the input
+        const uint16_t* rowRGB = reinterpret_cast<const uint16_t*>(input) + (rowIndex * width);
+        for (int x = 0; x < width; x++) {
+            rowBuffer[x] = rgb565_to_gray(rowRGB[x]);
+        }
+    };
+
+    // Fill the first two rows: currentLine = row 0, nextLine = row 1
+    fillGrayRow(0, currentLine);
+    fillGrayRow(1, nextLine);
+
+    // We'll pack 8 pixels per output byte
+    int bytesPerRow = width / 8; // (assuming width is multiple of 8)
+
+    // For each row 'y'
+    for (int y = 0; y < height; y++)
+    {
+        // ----------------------------
+        // 1) Floyd–Steinberg dithering on currentLine,
+        //    distributing error into nextLine
+        // ----------------------------
+        for (int x = 0; x < width; x++)
+        {
+            int oldPixel = currentLine[x];        // 0..255
+            int newPixel = (oldPixel >= 128) ? 255 : 0; // threshold
+            currentLine[x] = static_cast<uint8_t>(newPixel);
+
+            // Quantization error
+            int error = oldPixel - newPixel;
+
+            // Spread error to neighbors
+            // Right pixel (x+1, same row)
+            if (x + 1 < width) {
+                currentLine[x + 1] = static_cast<uint8_t>(
+                    currentLine[x + 1] + (error * 7) / 16
+                );
+            }
+            // Down-left (x-1, y+1)
+            if (x - 1 >= 0) {
+                nextLine[x - 1] = static_cast<uint8_t>(
+                    nextLine[x - 1] + (error * 3) / 16
+                );
+            }
+            // Directly below (x, y+1)
+            {
+                nextLine[x] = static_cast<uint8_t>(
+                    nextLine[x] + (error * 5) / 16
+                );
+            }
+            // Down-right (x+1, y+1)
+            if (x + 1 < width) {
+                nextLine[x + 1] = static_cast<uint8_t>(
+                    nextLine[x + 1] + (error * 1) / 16
+                );
+            }
+        }
+
+        // ----------------------------
+        // 2) Pack the dithered currentLine into the 1BPP output
+        // ----------------------------
+        for (int xByte = 0; xByte < bytesPerRow; xByte++)
+        {
+            uint8_t byteVal = 0;
+            for (int bit = 0; bit < 8; bit++)
+            {
                 int x = xByte * 8 + bit;
-                int idx = y * width + x;
-                // Set the bit if the pixel is white (255).
-                if (ztemp[idx] == 255) {
-                    byte |= (1 << (7 - bit)); // MSB corresponds to the leftmost pixel.
+                // If pixel is white => set bit
+                if (currentLine[x] == 255) {
+                    // MSB is the leftmost pixel
+                    byteVal |= (1 << (7 - bit));
                 }
             }
-            output[y * bytesPerRow + xByte] = byte;
+            output[y * bytesPerRow + xByte] = byteVal;
+        }
+
+        // ----------------------------
+        // 3) Advance to the next row:
+        //    - currentLine <- nextLine
+        //    - refill nextLine from row (y+2)
+        // ----------------------------
+        if (y + 1 < height)
+        {
+            // Swap the line buffers (just pointer swap)
+            for (int x = 0; x < width; x++) {
+                // Move nextLine into currentLine
+                currentLine[x] = nextLine[x];
+            }
+            // Fill the nextLine with grayscale data for row y+2
+            fillGrayRow(y + 2, nextLine);
         }
     }
 }
-
 
 void setup() {
   micros();
