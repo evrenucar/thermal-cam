@@ -1,14 +1,3 @@
-// made by BinaryWorlds
-// Not for commercial use, in other case by free to use it.
-// Just copy this text and link to original repository:
-// https://github.com/BinaryWorlds/ThermalPrinter
-
-// I am not responsible for errors in the library. I deliver it "as is".
-// I will be grateful for all suggestions.
-
-// Tested on firmware 2.69 and JP-QR701
-// Some features may not work on older firmware.
-
 #define CAMERA_MODEL_AI_THINKER // Has PSRAM
 #define CONFIG_CAMERA_TASK_STACK_SIZE 490*490
 
@@ -30,7 +19,6 @@ static uint8_t rotated_1bpp[(CAPTURE_HEIGHT/8) * CAPTURE_WIDTH];
 
 const byte rxPin = 3;
 const byte txPin = 1;
-
 HardwareSerial mySerial(0);
 Tprinter myPrinter(&mySerial, 9600);
 
@@ -206,9 +194,6 @@ void setup() {
   fb = esp_camera_fb_get();
   esp_camera_fb_return(fb);
   fb = esp_camera_fb_get();
-
-
-
 
   // 'fb->width' should be 480, 'fb->height' should be 320 (if HVGA is supported).
   // 8-bit grayscale => fb->len = 480*320 = 153600 bytes
