@@ -131,7 +131,7 @@ extern "C" void app_main(void)
 
     // Initialize the printer
     printer.begin();
-    printer.setHeat(1, 255, 0);
+    printer.setHeat(1, 224, 1);
     printer.justify('C');
     printer.printText("Thermal Camera Demo!\n");
     printer.feed(2);
