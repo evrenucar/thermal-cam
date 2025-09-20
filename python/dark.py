@@ -1,7 +1,7 @@
 from escpos.printer import Serial
 import time
 
-PRINTER_PORT = '/dev/ttyUSB2'  # Ensure this is the correct port
+PRINTER_PORT = '/dev/ttyAMA0'  # Ensure this is the correct port
 BAUDRATE = 9600
 
 try:
