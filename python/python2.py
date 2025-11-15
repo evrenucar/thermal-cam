@@ -1,7 +1,7 @@
 from escpos.printer import Serial
 
 # Configure the serial connection to your printer
-PRINTER_PORT = '/dev/ttyAMA0'
+PRINTER_PORT = '/dev/ttyAMA10'
 BAUDRATE = 9600  # Default for many ESC/POS printers
 
 try:

@@ -62,8 +62,8 @@ def print_pil_image(img_1bit: Image.Image):
     )
     try:
         p.hw('init')  # ESC @
-
         # Optional: quick header to confirm serial is clean
+        p.set_sleep_in_fragment()
         p.text("Camera print test (58mm)\n\n")
 
         # Stream the image in fragments to avoid buffer issues on tiny printers
@@ -85,10 +85,31 @@ def print_pil_image(img_1bit: Image.Image):
         p.close()
 
 def main():
-    img = capture_to_pil()
-    img1 = prep_for_printer(img)
-    print_pil_image(img1)
+    # timestring = time.strftime("%Y%m%d-%H%M%S")
+    # img = capture_to_pil()
+    # img.save(f"pics/{timestring}_before.png") 
+    # img1 = prep_for_printer(img)
+    # img1.save(f"pics/{timestring}_after.png")  # for debugging
+    # print_pil_image(img1)
+    
+
+
+    # sandbox
+    #
+    #
+
+    im = Image.open(f"/home/evren/repos/thermal-cam/python/pics/20251026-131731_after.png")
+    print_pil_image(im)
+    #
+    #
+    #
     print("Done: captured + printed.")
 
 if __name__ == "__main__":
     main()
+
+
+#
+                # data = list(i.getdata())
+                # w, h = i.size
+                # p.print_bitmap(data, w, h)
