@@ -12,6 +12,8 @@ from datetime import datetime
 from pathlib import Path
 from PIL import Image
 import time
+import threading
+import queue
 
 # Optional camera library imports
 try:
@@ -84,6 +86,12 @@ class ThermalCamera:
         self.camera = None  # Persistent camera instance
         self.capturing = True
         self.save_pending = False
+        
+        # Threading and queue
+        self.display_queue = queue.Queue(maxsize=1)
+        self.capture_thread = None
+        self.display_thread = None
+        self.image_lock = threading.Lock()
         
         # GPIO button instances
         self.button_capture = None
@@ -164,10 +172,10 @@ class ThermalCamera:
             logger.info("Initializing GPIO for buttons with gpiozero...")
             
             # Initialize buttons
-            self.button_capture = Button(CAPTURE_PIN, pull_up=False, bounce_time=0.3)
-            self.button_print = Button(PRINT_PIN, pull_up=False, bounce_time=0.3)
-            self.button_menu = Button(MENU_PIN, pull_up=False, bounce_time=0.3)
-            self.button_exit = Button(EXIT_PIN, pull_up=False, bounce_time=0.3)
+            self.button_capture = Button(CAPTURE_PIN, pull_up=True, bounce_time=0.05)
+            self.button_print = Button(PRINT_PIN, pull_up=True, bounce_time=0.05)
+            self.button_menu = Button(MENU_PIN, pull_up=True, bounce_time=0.05)
+            self.button_exit = Button(EXIT_PIN, pull_up=True, bounce_time=0.5)
 
             # Assign callbacks
             self.button_capture.when_pressed = self._callback_toggle_capture
@@ -205,7 +213,7 @@ class ThermalCamera:
                 logger.error("Unsupported camera type.")
                 return None
             
-            logger.debug(f"Image captured: {image.size}")
+            logger.info(f"Image captured: {image.size}")
             return image
             
         except Exception as e:
@@ -380,29 +388,15 @@ class ThermalCamera:
         logger.info("--- GPIO: EXIT ---")
         self._action_quit()
 
-    def _action_capture(self):
-        """Capture, process, display, and save an image."""
-        logger.info("--- ACTION: CAPTURE ---")
-        print("Capturing image...")
-        original = self.capture_image()
-        if not original:
-            print("✗ Failed to capture image")
-            return
-
-        self.current_image = original
-        self.current_timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        
-        display_img = self.prepare_for_display(original)
-        if display_img:
-            self.display_image(display_img)
-            print("✓ Image captured and displayed")
-        else:
-            print("✗ Failed to prepare image for display")
-
     def _action_print(self):
         """Print the current image."""
         logger.info("--- ACTION: PRINT ---")
-        if not self.current_image:
+        
+        with self.image_lock:
+            image_to_print = self.current_image
+            timestamp_to_print = self.current_timestamp
+
+        if not image_to_print:
             print("✗ No image captured yet. Press GPIO5 to capture first.")
             return
 
@@ -411,10 +405,10 @@ class ThermalCamera:
             return
 
         print("Preparing image for printer...")
-        printer_img = self.prepare_for_printer(self.current_image)
+        printer_img = self.prepare_for_printer(image_to_print)
         if printer_img:
             self.save_images(
-                timestamp=self.current_timestamp, 
+                timestamp=timestamp_to_print, 
                 printer_img=printer_img
             )
             
@@ -436,6 +430,76 @@ class ThermalCamera:
         print("Quitting application...")
         self.running = False
     
+    def _capture_loop(self):
+        """Thread target for continuous image capture."""
+        logger.info("Capture thread started.")
+        while self.running:
+            if not self.capturing:
+                time.sleep(0.1)
+                continue
+
+            try:
+                original = self.capture_image()
+                if original:
+                    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+                    try:
+                        # Drop old frame if queue is full
+                        if self.display_queue.full():
+                            self.display_queue.get_nowait()
+                        self.display_queue.put_nowait((original, timestamp))
+                    except queue.Full:
+                        logger.warning("Display queue is full, dropping a frame.")
+            except Exception as e:
+                logger.error(f"Error in capture loop: {e}")
+                time.sleep(1)
+        logger.info("Capture thread finished.")
+
+    def _display_loop(self):
+        """Thread target for displaying images from the queue."""
+        logger.info("Display thread started.")
+        while self.running:
+            try:
+                original, timestamp = self.display_queue.get(timeout=0.2)
+                
+                with self.image_lock:
+                    self.current_image = original
+                    self.current_timestamp = timestamp
+                
+                print("Displaying image...")
+                display_img = self.prepare_for_display(original)
+                if display_img:
+                    self.display_image(display_img)
+                    print("✓ Image displayed")
+                else:
+                    print("✗ Failed to prepare image for display")
+
+            except queue.Empty:
+                if self.save_pending:
+                    self._save_current_image()
+                    self.save_pending = False
+                continue
+            except Exception as e:
+                logger.error(f"Error in display loop: {e}")
+        logger.info("Display thread finished.")
+
+    def _save_current_image(self):
+        """Helper to save the current image."""
+        with self.image_lock:
+            image_to_save = self.current_image
+            timestamp_to_save = self.current_timestamp
+
+        if image_to_save:
+            print("Saving image...")
+            display_img = self.prepare_for_display(image_to_save)
+            self.save_images(
+                timestamp=timestamp_to_save,
+                original=image_to_save,
+                display_img=display_img
+            )
+            print("✓ Image saved.")
+        else:
+            print("No image to save.")
+
     def run(self):
         """Main loop with GPIO button control"""
         logger.info("Starting Thermal Camera Application (GPIO Mode)")
@@ -461,33 +525,33 @@ class ThermalCamera:
         print(f"  GPIO{PRINT_PIN}: Print")
         print(f"  GPIO{EXIT_PIN}: Exit")
         
+        self.running = True
+        self.capturing = True
+
+        self.capture_thread = threading.Thread(target=self._capture_loop)
+        self.display_thread = threading.Thread(target=self._display_loop)
+        self.capture_thread.start()
+        self.display_thread.start()
+
         try:
             while self.running:
-                if self.capturing:
-                    self._action_capture()
-                elif self.save_pending:
-                    if self.current_image:
-                        print("Saving image...")
-                        display_img = self.prepare_for_display(self.current_image)
-                        self.save_images(
-                            timestamp=self.current_timestamp,
-                            original=self.current_image,
-                            display_img=display_img
-                        )
-                        print("✓ Image saved.")
-                    else:
-                        print("No image to save from last capture session.")
-                    self.save_pending = False
-                
-                time.sleep(0.1) # Main loop polling delay
+                time.sleep(0.1)
                 
         except KeyboardInterrupt:
             logger.info("Interrupted by user")
-            self.running = False
         
-        # Cleanup
-        self.cleanup()
-        logger.info("Application closed")
+        finally:
+            logger.info("Shutting down...")
+            self.running = False
+            
+            if self.capture_thread and self.capture_thread.is_alive():
+                self.capture_thread.join()
+            if self.display_thread and self.display_thread.is_alive():
+                self.display_thread.join()
+
+            self.cleanup()
+            logger.info("Application closed")
+        
         return True
     
     def cleanup(self):

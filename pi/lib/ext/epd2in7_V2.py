@@ -100,7 +100,7 @@ class EPD:
     def ReadBusy(self):        
         logger.debug("e-Paper busy")
         while(epdconfig.digital_read(self.busy_pin) == 1):      #  1: idle, 0: busy
-            epdconfig.delay_ms(20)                
+            epdconfig.delay_ms(1)                
         logger.debug("e-Paper busy release")
     
     def TurnOnDisplay(self):
@@ -114,6 +114,7 @@ class EPD:
         self.send_data(0xFF)
         self.send_command(0x20) #Activate Display Update Sequence
         self.ReadBusy()
+
         
     def TurnOnDisplay_Partial(self):
         self.send_command(0x22) #Display Update Control
