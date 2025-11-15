@@ -11,7 +11,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from PIL import Image
-import select
+import time
 
 # Optional camera library imports
 try:
@@ -24,11 +24,25 @@ try:
 except ImportError:
     PiCamera = None
 
+# GPIO library
+try:
+    from gpiozero import Button
+    GPIO_AVAILABLE = True
+except ImportError:
+    Button = None
+    GPIO_AVAILABLE = False
+
 # numpy is required by both camera libraries for capturing arrays
 try:
     import numpy as np
 except ImportError:
     np = None
+
+# GPIO Pin definitions
+CAPTURE_PIN = 5
+PRINT_PIN = 13
+MENU_PIN = 6
+EXIT_PIN = 19
 
 # Add lib directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'lib'))
@@ -68,6 +82,14 @@ class ThermalCamera:
         self.running = True
         self.camera_available = False
         self.camera = None  # Persistent camera instance
+        self.capturing = True
+        self.save_pending = False
+        
+        # GPIO button instances
+        self.button_capture = None
+        self.button_print = None
+        self.button_menu = None
+        self.button_exit = None
     
     def initialize_camera(self):
         """Initialize the camera (once at startup)"""
@@ -130,6 +152,33 @@ class ThermalCamera:
             return True
         except Exception as e:
             logger.error(f"Error initializing printer: {e}")
+            return False
+    
+    def initialize_gpio(self):
+        """Initialize GPIO pins for button inputs using gpiozero"""
+        if not GPIO_AVAILABLE:
+            logger.error("gpiozero library not found. GPIO buttons will not work.")
+            return False
+        
+        try:
+            logger.info("Initializing GPIO for buttons with gpiozero...")
+            
+            # Initialize buttons
+            self.button_capture = Button(CAPTURE_PIN, pull_up=False, bounce_time=0.3)
+            self.button_print = Button(PRINT_PIN, pull_up=False, bounce_time=0.3)
+            self.button_menu = Button(MENU_PIN, pull_up=False, bounce_time=0.3)
+            self.button_exit = Button(EXIT_PIN, pull_up=False, bounce_time=0.3)
+
+            # Assign callbacks
+            self.button_capture.when_pressed = self._callback_toggle_capture
+            self.button_print.when_pressed = self._callback_print
+            self.button_menu.when_pressed = self._callback_menu
+            self.button_exit.when_pressed = self._callback_exit
+            
+            logger.info("GPIO initialized for buttons.")
+            return True
+        except Exception as e:
+            logger.error(f"Error initializing GPIO with gpiozero: {e}")
             return False
     
     def capture_image(self):
@@ -305,36 +354,31 @@ class ThermalCamera:
         except Exception as e:
             logger.error(f"Error saving images: {e}")
     
-    def print_help(self):
-        """Print keyboard help"""
-        help_text = (
-            "╔════════════════════════════════════════════════╗\n"
-            "║     Thermal Camera - Interactive Mode         ║\n"
-            "╠════════════════════════════════════════════════╣\n"
-            "║  Q  - Capture and display image               ║\n"
-            "║  W  - Print current image                     ║\n"
-            "║  E  - Reserved for future use                 ║\n"
-            "║  R  - Quit application                        ║\n"
-            "╚════════════════════════════════════════════════╝"
-        )
-        print(help_text)
-    
-    def handle_key_input(self, key):
-        """Handle keyboard input by dispatching to action methods."""
-        key = key.upper()
-        
-        actions = {
-            'Q': self._action_capture,
-            'W': self._action_print,
-            'E': self._action_reserved,
-            'R': self._action_quit,
-        }
-        
-        action = actions.get(key)
-        if action:
-            action()
+    def _callback_toggle_capture(self):
+        """Callback to start/stop image capture loop and save on stop."""
+        self.capturing = not self.capturing
+        if self.capturing:
+            logger.info("--- GPIO: START CAPTURE ---")
+            print("Capture started. Press GPIO5 again to stop and save.")
         else:
-            logger.warning(f"Unknown command: {key}")
+            logger.info("--- GPIO: STOP CAPTURE ---")
+            print("Capture stopped, flagging to save image.")
+            self.save_pending = True
+
+    def _callback_print(self):
+        """Callback to print the current image."""
+        logger.info("--- GPIO: PRINT ---")
+        self._action_print()
+
+    def _callback_menu(self):
+        """Callback for menu button."""
+        logger.info("--- GPIO: MENU (RESERVED) ---")
+        self._action_reserved()
+
+    def _callback_exit(self):
+        """Callback to exit the application."""
+        logger.info("--- GPIO: EXIT ---")
+        self._action_quit()
 
     def _action_capture(self):
         """Capture, process, display, and save an image."""
@@ -351,12 +395,6 @@ class ThermalCamera:
         display_img = self.prepare_for_display(original)
         if display_img:
             self.display_image(display_img)
-            # Save original and display images
-            # self.save_images(
-            #     timestamp=self.current_timestamp, 
-            #     original=original, 
-            #     display_img=display_img
-            # )
             print("✓ Image captured and displayed")
         else:
             print("✗ Failed to prepare image for display")
@@ -365,7 +403,7 @@ class ThermalCamera:
         """Print the current image."""
         logger.info("--- ACTION: PRINT ---")
         if not self.current_image:
-            print("✗ No image captured yet. Press Q to capture first.")
+            print("✗ No image captured yet. Press GPIO5 to capture first.")
             return
 
         if not self.printer:
@@ -375,7 +413,6 @@ class ThermalCamera:
         print("Preparing image for printer...")
         printer_img = self.prepare_for_printer(self.current_image)
         if printer_img:
-            # Save the printer image before printing
             self.save_images(
                 timestamp=self.current_timestamp, 
                 printer_img=printer_img
@@ -389,9 +426,9 @@ class ThermalCamera:
             print("✗ Failed to prepare image for printer")
 
     def _action_reserved(self):
-        """Handle reserved key 'E'."""
-        logger.info("--- ACTION: E (RESERVED) ---")
-        print("E key is reserved for future use.")
+        """Handle reserved key."""
+        logger.info("--- ACTION: RESERVED ---")
+        print("Reserved button pressed.")
 
     def _action_quit(self):
         """Signal the application to quit."""
@@ -399,9 +436,9 @@ class ThermalCamera:
         print("Quitting application...")
         self.running = False
     
-    def run_interactive(self):
-        """Main interactive loop with keyboard control"""
-        logger.info("Starting Thermal Camera Application (Interactive Mode)")
+    def run(self):
+        """Main loop with GPIO button control"""
+        logger.info("Starting Thermal Camera Application (GPIO Mode)")
         
         # Initialize hardware
         if not self.initialize_display():
@@ -414,23 +451,35 @@ class ThermalCamera:
         if not self.initialize_camera():
             logger.error("Failed to initialize camera")
             return False
+            
+        if not self.initialize_gpio():
+            # Error already logged
+            return False
         
-        # Print help
-        self.print_help()
-        
-        # Interactive loop
-        logger.info("Entering interactive mode. Press a key (Q, W, E, R)")
-        print("\nReady for input. Press Q, W, E, or R:")
+        print("Application started. Use GPIO buttons to control.")
+        print(f"  GPIO{CAPTURE_PIN}: Start/Stop Capture (saves on stop)")
+        print(f"  GPIO{PRINT_PIN}: Print")
+        print(f"  GPIO{EXIT_PIN}: Exit")
         
         try:
             while self.running:
-                # Wait for keyboard input (non-blocking with timeout)
-                #ready, _, _ = select.select([sys.stdin], [], [], 0.5)
-                key = 'Q' #sys.stdin.read(1)
-                if key:
-                    self.handle_key_input(key)
-                    if self.running:
-                        print("\nPress Q, W, E, or R:")
+                if self.capturing:
+                    self._action_capture()
+                elif self.save_pending:
+                    if self.current_image:
+                        print("Saving image...")
+                        display_img = self.prepare_for_display(self.current_image)
+                        self.save_images(
+                            timestamp=self.current_timestamp,
+                            original=self.current_image,
+                            display_img=display_img
+                        )
+                        print("✓ Image saved.")
+                    else:
+                        print("No image to save from last capture session.")
+                    self.save_pending = False
+                
+                time.sleep(0.1) # Main loop polling delay
                 
         except KeyboardInterrupt:
             logger.info("Interrupted by user")
@@ -460,14 +509,16 @@ class ThermalCamera:
                 self.camera.close()
             except:
                 pass
+        
+        # No explicit cleanup needed for gpiozero when the script ends gracefully
 
 
 def main():
     """Main entry point"""
     app = ThermalCamera()
     try:
-        # Use interactive mode
-        success = app.run_interactive()
+        # Use GPIO mode
+        success = app.run()
         sys.exit(0 if success else 1)
     except KeyboardInterrupt:
         logger.info("Application interrupted by user")
