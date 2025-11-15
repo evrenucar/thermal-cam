@@ -111,7 +111,7 @@ class EPD:
         
     def TurnOnDisplay_Fast(self):
         self.send_command(0x22) #Display Update Control
-        self.send_data(0xC7)
+        self.send_data(0xFF)
         self.send_command(0x20) #Activate Display Update Sequence
         self.ReadBusy()
         

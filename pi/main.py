@@ -352,11 +352,11 @@ class ThermalCamera:
         if display_img:
             self.display_image(display_img)
             # Save original and display images
-            self.save_images(
-                timestamp=self.current_timestamp, 
-                original=original, 
-                display_img=display_img
-            )
+            # self.save_images(
+            #     timestamp=self.current_timestamp, 
+            #     original=original, 
+            #     display_img=display_img
+            # )
             print("✓ Image captured and displayed")
         else:
             print("✗ Failed to prepare image for display")
@@ -425,14 +425,12 @@ class ThermalCamera:
         try:
             while self.running:
                 # Wait for keyboard input (non-blocking with timeout)
-                ready, _, _ = select.select([sys.stdin], [], [], 0.5)
-                
-                if ready:
-                    key = 'Q' #sys.stdin.read(1)
-                    if key:
-                        self.handle_key_input(key)
-                        if self.running:
-                            print("\nPress Q, W, E, or R:")
+                #ready, _, _ = select.select([sys.stdin], [], [], 0.5)
+                key = 'Q' #sys.stdin.read(1)
+                if key:
+                    self.handle_key_input(key)
+                    if self.running:
+                        print("\nPress Q, W, E, or R:")
                 
         except KeyboardInterrupt:
             logger.info("Interrupted by user")
