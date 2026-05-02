@@ -61,7 +61,7 @@ class ThermalPrinter(object):
 
     printer = None
 
-    _ESC = '\x1b'
+    _ESC = b'\x1b'
 
     # These values (including printDensity and printBreaktime) are taken from
     # lazyatom's Adafruit-Thermal-Library branch and seem to work nicely with bitmap
@@ -83,12 +83,12 @@ class ThermalPrinter(object):
     def __init__(self, heatTime=80, heatInterval=2, heatingDots=7, serialport=SERIALPORT):
         self.printer = Serial(serialport, self.BAUDRATE, timeout=self.TIMEOUT)
         self.printer.write(self._ESC) # ESC - command
-        self.printer.write(chr(64)) # @   - initialize
+        self.printer.write(bytes([64])) # @   - initialize
         self.printer.write(self._ESC) # ESC - command
-        self.printer.write(chr(55)) # 7   - print settings
-        self.printer.write(chr(heatingDots))  # Heating dots (20=balance of darkness vs no jams) default = 20
-        self.printer.write(chr(heatTime)) # heatTime Library default = 255 (max)
-        self.printer.write(chr(heatInterval)) # Heat interval (500 uS = slower, but darker) default = 250
+        self.printer.write(bytes([55])) # 7   - print settings
+        self.printer.write(bytes([heatingDots]))  # Heating dots (20=balance of darkness vs no jams) default = 20
+        self.printer.write(bytes([heatTime])) # heatTime Library default = 255 (max)
+        self.printer.write(bytes([heatInterval])) # Heat interval (500 uS = slower, but darker) default = 250
 
         # Description of print density from page 23 of the manual:
         # DC2 # n Set printing density
@@ -97,22 +97,22 @@ class ThermalPrinter(object):
         # D7..D5 of n is used to set the printing break time. Break time is n(D7-D5)*250us.
         printDensity = 15 # 120% (? can go higher, text is darker but fuzzy)
         printBreakTime = 15 # 500 uS
-        self.printer.write(chr(18))
-        self.printer.write(chr(35))
-        self.printer.write(chr((printDensity << 4) | printBreakTime))
+        self.printer.write(bytes([18]))
+        self.printer.write(bytes([35]))
+        self.printer.write(bytes([(printDensity << 4) | printBreakTime]))
 
     def offline(self):
         # Take the printer offline. Print commands sent after this will be
         # ignored until 'online' is called.
         self.printer.write(self._ESC)
-        self.printer.write(chr(61))
-        self.printer.write(chr(0))
+        self.printer.write(bytes([61]))
+        self.printer.write(bytes([0]))
 
     def online(self):
         # Take the printer back online. Subsequent print commands will be obeyed.
         self.printer.write(self._ESC)
-        self.printer.write(chr(61))
-        self.printer.write(chr(1))
+        self.printer.write(bytes([61]))
+        self.printer.write(bytes([1]))
 
     def sleep(self):
         # Put the printer into a low-energy state immediately.
@@ -124,26 +124,26 @@ class ThermalPrinter(object):
         if seconds:
             sleep(seconds)
             self.printer.write(self._ESC)
-            self.printer.write(chr(56))
-            self.printer.write(chr(seconds))
-            self.printer.write(chr(seconds >> 8))
+            self.printer.write(bytes([56]))
+            self.printer.write(bytes([seconds]))
+            self.printer.write(bytes([seconds >> 8]))
 
     def wake(self):
         # Wake the printer from a low-energy state.
-        self.printer.write(chr(255))
+        self.printer.write(bytes([255]))
         sleep(0.05)
         self.printer.write(self._ESC)
-        self.printer.write(chr(56))
-        self.printer.write(chr(0))
-        self.printer.write(chr(0))
+        self.printer.write(bytes([56]))
+        self.printer.write(bytes([0]))
+        self.printer.write(bytes([0]))
 
     def has_paper(self):
         # Check the status of the paper using the printer's self reporting
         # ability. SerialTX _must_ be connected!
         status = -1
         self.printer.write(self._ESC)
-        self.printer.write(chr(118))
-        self.printer.write(chr(0))
+        self.printer.write(bytes([118]))
+        self.printer.write(bytes([0]))
         for i in range(0, 9):
             if self.printer.inWaiting():
                 status = unpack('b', self.printer.read())[0]
@@ -153,11 +153,11 @@ class ThermalPrinter(object):
 
     def reset(self):
         self.printer.write(self._ESC)
-        self.printer.write(chr(64))
+        self.printer.write(bytes([64]))
 
     def linefeed(self, number=1):
         for _ in range(number):
-            self.printer.write(chr(10))
+            self.printer.write(bytes([10]))
 
     def justify(self, align="L"):
         pos = 0
@@ -168,48 +168,48 @@ class ThermalPrinter(object):
         elif align == "R":
             pos = 2
         self.printer.write(self._ESC)
-        self.printer.write(chr(97))
-        self.printer.write(chr(pos))
+        self.printer.write(bytes([97]))
+        self.printer.write(bytes([pos]))
 
     def bold(self, on=True):
         self.printer.write(self._ESC)
-        self.printer.write(chr(69))
-        self.printer.write(chr(on))
+        self.printer.write(bytes([69]))
+        self.printer.write(bytes([int(on)]))
 
     def font_b(self, on=True):
         self.printer.write(self._ESC)
-        self.printer.write(chr(33))
-        self.printer.write(chr(on))
+        self.printer.write(bytes([33]))
+        self.printer.write(bytes([int(on)]))
 
     def underline(self, on=True):
         self.printer.write(self._ESC)
-        self.printer.write(chr(45))
-        self.printer.write(chr(on))
+        self.printer.write(bytes([45]))
+        self.printer.write(bytes([int(on)]))
 
     def inverse(self, on=True):
-        self.printer.write(chr(29))
-        self.printer.write(chr(66))
-        self.printer.write(chr(on))
+        self.printer.write(bytes([29]))
+        self.printer.write(bytes([66]))
+        self.printer.write(bytes([int(on)]))
 
     def upsidedown(self, on=True):
         self.printer.write(self._ESC)
-        self.printer.write(chr(123))
-        self.printer.write(chr(on))
+        self.printer.write(bytes([123]))
+        self.printer.write(bytes([int(on)]))
 
     def barcode_chr(self, msg):
-        self.printer.write(chr(29)) # Leave
-        self.printer.write(chr(72)) # Leave
-        self.printer.write(msg)     # Print barcode # 1:Abovebarcode 2:Below 3:Both 0:Not printed
+        self.printer.write(bytes([29])) # Leave
+        self.printer.write(bytes([72])) # Leave
+        self.printer.write(msg.encode() if isinstance(msg, str) else msg)     # Print barcode # 1:Abovebarcode 2:Below 3:Both 0:Not printed
 
     def barcode_height(self, msg):
-        self.printer.write(chr(29))  # Leave
-        self.printer.write(chr(104)) # Leave
-        self.printer.write(msg)      # Value 1-255 Default 50
+        self.printer.write(bytes([29]))  # Leave
+        self.printer.write(bytes([104])) # Leave
+        self.printer.write(msg.encode() if isinstance(msg, str) else msg)      # Value 1-255 Default 50
 
     def barcode_height(self):
-        self.printer.write(chr(29))  # Leave
-        self.printer.write(chr(119)) # Leave
-        self.printer.write(chr(2))   # Value 2,3 Default 2
+        self.printer.write(bytes([29]))  # Leave
+        self.printer.write(bytes([119])) # Leave
+        self.printer.write(bytes([2]))   # Value 2,3 Default 2
 
     def barcode(self, msg):
         """ Please read http://www.adafruit.com/datasheets/A2-user%20manual.pdf
@@ -221,25 +221,26 @@ class ThermalPrinter(object):
         # 68=EAN8    7,8    #74=CODE11    >1
         # 69=CODE39    >1    #75=MSI        >1
         # 70=I25        >1 EVEN NUMBER
-        self.printer.write(chr(29))  # LEAVE
-        self.printer.write(chr(107)) # LEAVE
-        self.printer.write(chr(65))  # USE ABOVE CHART
-        self.printer.write(chr(12))  # USE CHART NUMBER OF CHAR
-        self.printer.write(msg)
+        self.printer.write(bytes([29]))  # LEAVE
+        self.printer.write(bytes([107])) # LEAVE
+        self.printer.write(bytes([65]))  # USE ABOVE CHART
+        self.printer.write(bytes([12]))  # USE CHART NUMBER OF CHAR
+        self.printer.write(msg.encode() if isinstance(msg, str) else msg)
 
     def print_text(self, msg, chars_per_line=None):
         """ Print some text defined by msg. If chars_per_line is defined,
             inserts newlines after the given amount. Use normal '\n' line breaks for
             empty lines. """
         if not chars_per_line:
-            self.printer.write(msg)
+            self.printer.write(msg.encode() if isinstance(msg, str) else msg)
             sleep(0.2)
         else:
             l = list(msg)
             le = len(msg)
-            for i in xrange(chars_per_line + 1, le, chars_per_line + 1):
+            for i in range(chars_per_line + 1, le, chars_per_line + 1):
                 l.insert(i, '\n')
-            self.printer.write("".join(l))
+            out = "".join(l)
+            self.printer.write(out.encode() if isinstance(out, str) else out)
             sleep(0.2)
 
     def print_markup(self, markup):
@@ -298,23 +299,23 @@ class ThermalPrinter(object):
             # print " => single channel"
             for i, p in enumerate(pixels):
                 if p < self.black_threshold:
-                    black_and_white_pixels[i % w + i / w * 384] = 0
+                    black_and_white_pixels[i % w + i // w * 384] = 0
                 else:
-                    black_and_white_pixels[i % w + i / w * 384] = 1
+                    black_and_white_pixels[i % w + i // w * 384] = 1
         elif type(pixels[0]) in (list, tuple) and len(pixels[0]) == 3: # RGB
             # print " => RGB channel"
             for i, p in enumerate(pixels):
                 if sum(p[0:2]) / 3.0 < self.black_threshold:
-                    black_and_white_pixels[i % w + i / w * 384] = 0
+                    black_and_white_pixels[i % w + i // w * 384] = 0
                 else:
-                    black_and_white_pixels[i % w + i / w * 384] = 1
+                    black_and_white_pixels[i % w + i // w * 384] = 1
         elif type(pixels[0]) in (list, tuple) and len(pixels[0]) == 4: # RGBA
             # print " => RGBA channel"
             for i, p in enumerate(pixels):
                 if sum(p[0:2]) / 3.0 < self.black_threshold and p[3] > self.alpha_threshold:
-                    black_and_white_pixels[i % w + i / w * 384] = 0
+                    black_and_white_pixels[i % w + i // w * 384] = 0
                 else:
-                    black_and_white_pixels[i % w + i / w * 384] = 1
+                    black_and_white_pixels[i % w + i // w * 384] = 1
         else:
             # print "Unsupported pixels array type. Please send plain list (single channel, RGB or RGBA)"
             # print "Type pixels[0]", type(pixels[0]), "haz", pixels[0]
@@ -353,14 +354,14 @@ class ThermalPrinter(object):
         print_bytes = []
 
         # read the bytes into an array
-        for rowStart in xrange(0, h, 256):
+        for rowStart in range(0, h, 256):
             chunkHeight = 255 if (h - rowStart) > 255 else h - rowStart
             print_bytes += (18, 42, chunkHeight, 48)
 
-            for i in xrange(0, 48 * chunkHeight):
+            for i in range(0, 48 * chunkHeight):
                 # read one byte in
                 byt = 0
-                for xx in xrange(8):
+                for xx in range(8):
                     pixel_value = black_and_white_pixels[counter]
                     counter += 1
                     # check if this is black
@@ -377,7 +378,7 @@ class ThermalPrinter(object):
         # might be better to send while printing when dealing with
         # very large arrays...
         for b in print_bytes:
-            self.printer.write(chr(b))
+            self.printer.write(bytes([b]))
 
         if output_png:
             test_print = open('print-output.png', 'wb')
@@ -432,7 +433,7 @@ il inverse left
     i = Image.open("example-evren.png")
     #resize i so it's max 384 wide and max 384 high
     i = i.resize((382, 382), Image.ANTIALIAS)
-    
+
     data = list(i.getdata())
     w, h = i.size
     p.print_bitmap(data, w, h, True)
