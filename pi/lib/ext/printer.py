@@ -50,7 +50,7 @@ class ThermalPrinter(object):
     # this might work better on a Raspberry Pi
     SERIALPORT = '/dev/ttyAMA0'
 
-    BAUDRATE = 19200
+    BAUDRATE = 9600
     TIMEOUT = 3
 
     # pixels with more color value (average for multiple channels) are counted as white
@@ -353,10 +353,16 @@ class ThermalPrinter(object):
         black_and_white_pixels = self.convert_pixel_array_to_binary(pixels, w, h)
         print_bytes = []
 
-        # read the bytes into an array
-        for rowStart in range(0, h, 256):
-            chunkHeight = 255 if (h - rowStart) > 255 else h - rowStart
-            print_bytes += (18, 42, chunkHeight, 48)
+        # Printer's internal command buffer is ~255 bytes, and each row of a
+        # 384-px bitmap is 48 bytes, so we can fit floor(255/48) = 5 rows per
+        # DC2 * command. Sending more makes the printer drop out of bitmap
+        # mode mid-stream and interpret subsequent header bytes as text.
+        BYTES_PER_ROW = 48
+        ROWS_PER_CHUNK = 255 // BYTES_PER_ROW  # = 5
+
+        for rowStart in range(0, h, ROWS_PER_CHUNK):
+            chunkHeight = min(ROWS_PER_CHUNK, h - rowStart)
+            print_bytes += (18, 42, chunkHeight, BYTES_PER_ROW)
 
             for i in range(0, 48 * chunkHeight):
                 # read one byte in
