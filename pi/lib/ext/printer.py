@@ -81,6 +81,9 @@ class ThermalPrinter(object):
     # clear, but the slower printing speed.
 
     def __init__(self, heatTime=80, heatInterval=2, heatingDots=7, serialport=SERIALPORT):
+        self._heat_time = heatTime
+        self._heat_interval = heatInterval
+        self._heating_dots = heatingDots
         self.printer = Serial(serialport, self.BAUDRATE, timeout=self.TIMEOUT)
         self.printer.write(self._ESC) # ESC - command
         self.printer.write(bytes([64])) # @   - initialize
@@ -351,40 +354,46 @@ class ThermalPrinter(object):
         self.linefeed()
 
         black_and_white_pixels = self.convert_pixel_array_to_binary(pixels, w, h)
-        print_bytes = []
 
         # Printer's internal command buffer is ~255 bytes, and each row of a
         # 384-px bitmap is 48 bytes, so we can fit floor(255/48) = 5 rows per
         # DC2 * command. Sending more makes the printer drop out of bitmap
         # mode mid-stream and interpret subsequent header bytes as text.
         BYTES_PER_ROW = 48
-        ROWS_PER_CHUNK = 255 // BYTES_PER_ROW  # = 5
+        ROWS_PER_CHUNK = 3  # under the 255B buffer cap; smaller = more pacing opportunities
+
+        # Inter-chunk pacing: if we send the next chunk faster than the
+        # printhead can burn the current one, the printer's buffer overflows,
+        # it drops out of bitmap mode mid-stream, and the next chunk's header
+        # bytes (DC2 *, n, 48) get parsed as text -> kanji bands in the output.
+        # Formula matches arduino/DUPA_bitmap_printing/TPrinter.cpp setDelayBitmap.
+        dots_per_cycle = (self._heating_dots + 1) * 8
+        cycle_time_us = (self._heat_time + self._heat_interval) * 10
 
         for rowStart in range(0, h, ROWS_PER_CHUNK):
             chunkHeight = min(ROWS_PER_CHUNK, h - rowStart)
-            print_bytes += (18, 42, chunkHeight, BYTES_PER_ROW)
+            chunk_bytes = [18, 42, chunkHeight, BYTES_PER_ROW]
+            black_bits = 0
 
             for i in range(0, 48 * chunkHeight):
-                # read one byte in
                 byt = 0
                 for xx in range(8):
                     pixel_value = black_and_white_pixels[counter]
                     counter += 1
-                    # check if this is black
                     if pixel_value == 0:
                         byt += 1 << (7 - xx)
+                        black_bits += 1
                         if output_png: draw.point((counter % 384, round(counter / 384)), fill=(0, 0, 0))
-                    # it's white
                     else:
                         if output_png: draw.point((counter % 384, round(counter / 384)), fill=(255, 255, 255))
 
-                print_bytes.append(byt)
+                chunk_bytes.append(byt)
 
-        # output the array all at once to the printer
-        # might be better to send while printing when dealing with
-        # very large arrays...
-        for b in print_bytes:
-            self.printer.write(bytes([b]))
+            self.printer.write(bytes(chunk_bytes))
+            self.printer.flush()
+
+            burn_time_s = (black_bits / dots_per_cycle) * cycle_time_us / 1_000_000
+            sleep(max(0.05, burn_time_s * 1.25))
 
         if output_png:
             test_print = open('print-output.png', 'wb')
