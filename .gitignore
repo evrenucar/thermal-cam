@@ -1,0 +1,15 @@
+# Build output — never commit this again (was 92% of the repo)
+build/
+sdkconfig.old
+
+# Python
+__pycache__/
+*.pyc
+
+# Runtime output
+captured_images/
+pi/captured_images/
+
+# Review workflow
+tools/answers/
+.playwright-mcp/
