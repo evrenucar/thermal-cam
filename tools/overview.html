@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>thermal-cam — code overview &amp; plan</title>
+<style>
+  :root {
+    --bg: #fbfaf7;
+    --panel: #ffffff;
+    --ink: #16150f;
+    --dim: #5f5c50;
+    --rule: #e2ded2;
+    --accent: #b4451f;
+    --accent-soft: #fdf0e9;
+    --code-bg: #f3f0e7;
+    --ok: #2f6b3a;
+    --warn: #8a6510;
+    --bad: #a8321c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14140f;
+      --panel: #1c1c16;
+      --ink: #eceadf;
+      --dim: #9b978a;
+      --rule: #2e2d24;
+      --accent: #ec7a4a;
+      --accent-soft: #2a1b12;
+      --code-bg: #23231b;
+      --ok: #79b98a;
+      --warn: #d8ac4e;
+      --bad: #ec7a6a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14140f; --panel: #1c1c16; --ink: #eceadf; --dim: #9b978a;
+    --rule: #2e2d24; --accent: #ec7a4a; --accent-soft: #2a1b12;
+    --code-bg: #23231b; --ok: #79b98a; --warn: #d8ac4e; --bad: #ec7a6a;
+  }
+  :root[data-theme="light"] {
+    --bg: #fbfaf7; --panel: #ffffff; --ink: #16150f; --dim: #5f5c50;
+    --rule: #e2ded2; --accent: #b4451f; --accent-soft: #fdf0e9;
+    --code-bg: #f3f0e7; --ok: #2f6b3a; --warn: #8a6510; --bad: #a8321c;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.65 ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 62rem; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+
+  header { border-bottom: 2px solid var(--ink); padding-bottom: 1.25rem; margin-bottom: 2.5rem; }
+  h1 { font-size: clamp(1.9rem, 5vw, 2.7rem); margin: 0 0 .35rem; letter-spacing: -.02em; font-weight: 640; }
+  h1 span { color: var(--accent); }
+  .sub { color: var(--dim); font-size: .95rem; margin: 0; }
+  .sub code { background: none; padding: 0; color: var(--dim); }
+
+  h2 {
+    font-size: 1.28rem; margin: 3rem 0 1rem; letter-spacing: -.01em; font-weight: 640;
+    display: flex; align-items: baseline; gap: .6rem;
+  }
+  h2::before {
+    content: attr(data-n);
+    font: 600 .78rem/1 ui-monospace, "Cascadia Code", Consolas, monospace;
+    color: var(--accent); background: var(--accent-soft);
+    padding: .32rem .45rem; border-radius: 4px; letter-spacing: 0;
+  }
+  h3 { font-size: 1rem; margin: 1.8rem 0 .5rem; font-weight: 640; }
+
+  p, li { color: var(--ink); }
+  a { color: var(--accent); }
+
+  code {
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+    font-size: .875em; background: var(--code-bg);
+    padding: .12em .38em; border-radius: 3px;
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--rule); border-radius: 8px;
+    padding: 1rem 1.1rem; overflow-x: auto; font-size: .84rem; line-height: 1.6;
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  }
+  pre code { background: none; padding: 0; font-size: 1em; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--rule);
+    border-radius: 10px; padding: 1.25rem 1.4rem; margin: 1rem 0;
+  }
+  .card.flag { border-left: 3px solid var(--accent); }
+
+  .flow {
+    display: flex; flex-wrap: wrap; gap: .5rem; align-items: center;
+    font-family: ui-monospace, Consolas, monospace; font-size: .82rem;
+    margin: 1rem 0; color: var(--dim);
+  }
+  .flow b {
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 6px;
+    padding: .4rem .65rem; color: var(--ink); font-weight: 500;
+  }
+  .flow .arr { color: var(--accent); font-weight: 700; }
+
+  .tablewrap { overflow-x: auto; margin: 1rem 0; }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; min-width: 34rem; }
+  th, td { text-align: left; padding: .62rem .7rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-size: .74rem; text-transform: uppercase; letter-spacing: .07em; color: var(--dim); font-weight: 620; }
+  tbody tr:last-child td { border-bottom: none; }
+  td code { white-space: nowrap; }
+
+  .tag {
+    display: inline-block; font: 600 .68rem/1 ui-monospace, Consolas, monospace;
+    padding: .32rem .45rem; border-radius: 4px; letter-spacing: .04em;
+    border: 1px solid currentColor;
+  }
+  .t-bad { color: var(--bad); }
+  .t-warn { color: var(--warn); }
+  .t-ok { color: var(--ok); }
+
+  ol.plan { list-style: none; counter-reset: s; padding: 0; margin: 1rem 0 0; }
+  ol.plan > li {
+    counter-increment: s; position: relative;
+    padding: 1rem 0 1rem 3.1rem; border-bottom: 1px solid var(--rule);
+  }
+  ol.plan > li:last-child { border-bottom: none; }
+  ol.plan > li::before {
+    content: counter(s); position: absolute; left: 0; top: 1rem;
+    width: 2.1rem; height: 2.1rem; display: grid; place-items: center;
+    border: 1px solid var(--rule); border-radius: 50%;
+    font: 600 .8rem ui-monospace, Consolas, monospace; color: var(--accent);
+    background: var(--panel);
+  }
+  ol.plan h4 { margin: 0 0 .3rem; font-size: 1rem; font-weight: 620; }
+  ol.plan p { margin: 0; color: var(--dim); font-size: .92rem; }
+  .cost { float: right; font: 600 .7rem ui-monospace, Consolas, monospace; color: var(--dim); }
+
+  .stat { display: flex; flex-wrap: wrap; gap: 1.5rem; margin: 1.2rem 0; }
+  .stat div { flex: 1 1 8rem; }
+  .stat b { display: block; font: 660 1.7rem/1.1 ui-monospace, Consolas, monospace; color: var(--accent); }
+  .stat span { font-size: .8rem; color: var(--dim); }
+
+  .pony {
+    background: var(--accent-soft); border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent); border-radius: 8px;
+    padding: 1rem 1.2rem; margin: 1.2rem 0; font-size: .93rem;
+  }
+  .pony strong { color: var(--accent); }
+
+  footer { margin-top: 4rem; padding-top: 1.2rem; border-top: 1px solid var(--rule); color: var(--dim); font-size: .82rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>thermal-cam <span>/ overview</span></h1>
+  <p class="sub">Raspberry Pi 5 · e-ink preview · 58mm ESC/POS printer — read of <code>master</code> @ <code>ee848ed</code></p>
+</header>
+
+<h2 data-n="01">What it is</h2>
+<p>A handheld: camera → e-ink preview → thermal-print the shot. Four GPIO buttons, no screen UI.</p>
+<p><code>pi/</code> is the only code that runs on the device. <code>arduino/</code>, <code>esp-idf/</code> and <code>python/</code> are abandoned prototypes kept for reference — the Arduino <code>TPrinter.cpp</code> is genuinely useful as the reference implementation, the rest is history.</p>
+
+<h2 data-n="02">Architecture</h2>
+<p><code>pi/main.py</code> is one <code>ThermalCamera</code> class plus three concurrent pieces:</p>
+
+<div class="card">
+  <table>
+    <tbody>
+      <tr>
+        <td style="width:11rem"><code>_capture_loop</code><br><span style="color:var(--dim);font-size:.8rem">main.py:433</span></td>
+        <td>Grabs frames flat-out while <code>self.capturing</code>. Pushes <code>(image, timestamp)</code> into a <code>maxsize=1</code> queue, evicting the stale frame first.</td>
+      </tr>
+      <tr>
+        <td><code>_display_loop</code><br><span style="color:var(--dim);font-size:.8rem">main.py:457</span></td>
+        <td>Pulls a frame, stashes it as <code>current_image</code> under a lock, dithers, blits to e-ink. The <code>queue.Empty</code> branch doubles as the save trigger.</td>
+      </tr>
+      <tr>
+        <td>main thread<br><span style="color:var(--dim);font-size:.8rem">main.py:537</span></td>
+        <td>Sleeps in a 0.1 s loop. All input arrives via gpiozero callbacks (<code>main.py:181</code>), which run on gpiozero's own threads.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="flow">
+  <b>camera</b><span class="arr">→</span><b>queue(1)</b><span class="arr">→</span><b>dither</b><span class="arr">→</span><b>e-ink</b>
+  <span style="margin-left:1rem;opacity:.6">│</span>
+  <b>current_image</b><span class="arr">→</span><b>384 px</b><span class="arr">→</span><b>DC2 * chunks</b><span class="arr">→</span><b>paper</b>
+</div>
+
+<p>The queue is a <strong>frame dropper, not a buffer</strong>. The camera runs far faster than an e-ink refresh, so most frames are discarded by design. Printing doesn't touch the queue at all — <code>_action_print</code> (<code>main.py:391</code>) snapshots <code>current_image</code> under the lock and re-processes it independently.</p>
+
+<p>Two divergent image paths from the same source frame: <code>prepare_for_display</code> letterboxes onto a 176×264 canvas; <code>prepare_for_printer</code> scales to 384 px wide with no padding. Both Floyd–Steinberg dither to 1-bit.</p>
+
+<h2 data-n="03">The printer driver</h2>
+<p><code>pi/lib/ext/printer.py</code> — Ladyada's Arduino library ported to Python. <code>print_bitmap</code> (<code>printer.py:330</code>) is where every recent commit went. Three constraints stack:</p>
+
+<div class="card flag">
+  <h3>1 · 9600 baud, not 19200</h3>
+  <p style="margin:.2rem 0 0;color:var(--dim)">The upstream default corrupts every byte, and corrupted bitmap data trips the printer's default kanji mode. That's the <em>"prints Chinese characters"</em> failure.</p>
+  <h3>2 · Chunks capped at 3 rows <code>printer.py:363</code></h3>
+  <p style="margin:.2rem 0 0;color:var(--dim)">The command buffer is ~255 bytes; a 384-px row is 48 bytes, so 5 rows is the hard ceiling. The code uses 3 to leave pacing headroom.</p>
+  <h3>3 · Inter-chunk pacing <code>printer.py:395</code></h3>
+  <p style="margin:.2rem 0 0;color:var(--dim)">Counts black bits per chunk, estimates burn time from <code>heat_time</code>/<code>heating_dots</code>, sleeps 1.25×. Without it the buffer overflows mid-stream and header bytes print as text. This is the fix behind <em>"spams kanji in middle of the image"</em> → <em>"good"</em>.</p>
+</div>
+
+<h2 data-n="04">Config gotcha</h2>
+<p><code>DISPLAY_WIDTH=264, DISPLAY_HEIGHT=176</code> are the <em>landscape</em> dimensions. The panel is natively 176×264. <code>DISPLAY_ROTATION=90</code> swaps them back at <code>main.py:233</code>, and <code>getbuffer</code> handles both orientations.</p>
+<p>It is consistent and it works — it's just indirect. The constants don't mean what their names suggest, which is exactly the kind of thing that costs an hour in six months.</p>
+
+<h2 data-n="05">Findings</h2>
+<div class="tablewrap">
+<table>
+  <thead>
+    <tr><th>Sev</th><th>Where</th><th>What</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="tag t-bad">DOC</span></td>
+      <td><code>README.md</code></td>
+      <td><strong><code>pi/test_printer.py</code> does not exist.</strong> Referenced three times — the map, Run, and Tests. The repo has no test entry point at all.</td>
+    </tr>
+    <tr>
+      <td><span class="tag t-bad">BLOAT</span></td>
+      <td><code>arduino/esp32-trial/build/</code></td>
+      <td><strong>1338 of 1452 tracked files are ESP32 build output</strong> — <code>.ninja_deps</code>, <code>.elf</code>, <code>.map</code>, <code>CMakeCache.txt</code>. 92% of the repo. <code>.git</code> is 47 MB, and there is no <code>.gitignore</code> anywhere.</td>
+    </tr>
+    <tr>
+      <td><span class="tag t-warn">DUP</span></td>
+      <td><code>pi/epd2in7_V2.py</code></td>
+      <td>Stale near-fork of <code>pi/lib/ext/epd2in7_V2.py</code> — 7 lines differ. It uses <code>from . import epdconfig</code>, which cannot resolve from <code>pi/</code> (not a package), and carries different panel values (<code>delay_ms(20)</code> vs <code>1</code>, <code>0xC7</code> vs <code>0xFF</code>). Nothing imports it.</td>
+    </tr>
+    <tr>
+      <td><span class="tag t-warn">BUG</span></td>
+      <td><code>printer.py:356</code></td>
+      <td><code>print_bitmap</code> ignores the <code>False</code> that <code>convert_pixel_array_to_binary</code> returns when <code>w &gt; 384</code>. You get a confusing <code>TypeError</code> on subscript instead of a clear error. Unreachable today — <code>prepare_for_printer</code> clamps the width.</td>
+    </tr>
+    <tr>
+      <td><span class="tag t-warn">DEAD</span></td>
+      <td><code>pi/lib/int/ui.py</code></td>
+      <td>Zero bytes. <code>MENU_PIN</code> (GPIO 6) is wired to a callback that logs and returns.</td>
+    </tr>
+    <tr>
+      <td><span class="tag t-ok">LINT</span></td>
+      <td><code>printer.py:296</code></td>
+      <td>Leftover <code>print("hi")</code> in the hot path.</td>
+    </tr>
+    <tr>
+      <td><span class="tag t-ok">LINT</span></td>
+      <td><code>printer.py:207,212</code></td>
+      <td><code>barcode_height</code> defined twice; the second shadows the first. Inherited from upstream, unused here.</td>
+    </tr>
+    <tr>
+      <td><span class="tag t-ok">PERF</span></td>
+      <td><code>main.py:436</code></td>
+      <td>Capture loop spins with no sleep while capturing. Burns a core to throw away frames the e-ink can never show.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div class="stat">
+  <div><b>1338</b><span>tracked build artifacts</span></div>
+  <div><b>47 MB</b><span>.git size</span></div>
+  <div><b>0</b><span>tests</span></div>
+  <div><b>10</b><span>files that actually ship</span></div>
+</div>
+
+<h2 data-n="06">Next TODO</h2>
+<p>Ordered by payoff per keystroke. The first two are the only ones that matter this week.</p>
+
+<ol class="plan">
+  <li>
+    <span class="cost">~15 lines</span>
+    <h4>Make <code>pi/test_printer.py</code> real</h4>
+    <p>The README already documents it and <code>printer.py</code> is the only non-trivial logic in the repo — chunking, bit-packing, burn-time pacing. Open printer, print a line of text, print a saved PNG, exit. No framework. It's the one check that fails if the bitmap path regresses.</p>
+  </li>
+  <li>
+    <span class="cost">2 commands</span>
+    <h4>Untrack the ESP32 build output</h4>
+    <p><code>git rm -r --cached arduino/esp32-trial/build</code> plus a <code>.gitignore</code> holding <code>build/</code> — there is no <code>.gitignore</code> in the repo at all right now. Drops 92% of the file count. History stays fat unless you rewrite it; not worth it, just stop adding.</p>
+  </li>
+  <li>
+    <span class="cost">3 deletions</span>
+    <h4>Delete the duplicates and the stub</h4>
+    <p><code>pi/epd2in7_V2.py</code> (stale fork, broken import), <code>pi/epd_2in7b_V2_test.py</code>, <code>pi/lib/int/ui.py</code>. Zero bytes of intent is not a plan for a menu; delete it and the dead <code>_action_reserved</code> path with it. Re-add when the menu actually has a screen to show.</p>
+  </li>
+  <li>
+    <span class="cost">2 lines</span>
+    <h4><code>print("hi")</code> out, width guard in</h4>
+    <p>Delete the debug print. Turn the silent <code>return False</code> into <code>raise ValueError(f"bitmap width {w} &gt; 384")</code> so the failure names itself.</p>
+  </li>
+  <li>
+    <span class="cost">1 line</span>
+    <h4>Throttle the capture loop</h4>
+    <p><code>time.sleep(0.2)</code> at the top of the capture branch. The e-ink can't refresh faster than that anyway, and you stop pegging a core to discard frames.</p>
+  </li>
+  <li>
+    <span class="cost">field work</span>
+    <h4>Tune print contrast on real paper</h4>
+    <p>The uneven mid-tone rows are a heat problem, not a code problem. <code>PRINTER_HEAT_TIME</code> / <code>PRINTER_HEATING_DOTS</code> / <code>PRINTER_HEAT_INTERVAL</code> are already exposed in <code>config.py</code> — that's the right shape. Sweep them against a test card and write the winning values down in the README.</p>
+  </li>
+</ol>
+
+<h2 data-n="07">Suggestions</h2>
+
+<div class="pony">
+  <strong>ponytail · lite</strong> — you asked me to run this past the lazy-senior filter. Three things stand out.
+</div>
+
+<h3>The RGB/RGBA branches in <code>convert_pixel_array_to_binary</code> are dead</h3>
+<p><code>prepare_for_printer</code> always hands you a mode-<code>'1'</code> image, so <code>pixels[0]</code> is always an <code>int</code> and only the single-channel branch ever runs. The other two branches are ~25 lines that cannot execute — and one of them is <em>wrong</em>: <code>sum(p[0:2]) / 3.0</code> sums two channels and divides by three. Delete both branches rather than fix them.</p>
+
+<h3>Most of <code>printer.py</code> is upstream you never call</h3>
+<p><code>print_markup</code>, all four barcode methods, <code>upsidedown</code>, <code>inverse</code>, <code>offline</code>/<code>online</code>, <code>has_paper</code>, the <code>output_png</code> debug path, and the <code>__main__</code> demo that references a missing <code>example-evren.png</code> and a <code>Image.ANTIALIAS</code> constant Pillow removed in v10. The device uses <code>print_text</code>, <code>print_bitmap</code>, <code>linefeed</code>, <code>justify</code>, <code>sleep</code>. That's five methods out of twenty-odd.</p>
+<p style="color:var(--dim);font-size:.92rem">Counterpoint, and I'd take it: it's a vendored third-party driver. Vendored code you don't maintain is cheaper left whole than pruned — pruning it makes future upstream diffs unreadable for no runtime gain. <strong>Leave it.</strong> Just delete the <code>print("hi")</code>, which is yours, not theirs.</p>
+
+<h3>Don't build the menu system</h3>
+<p>GPIO 6 has been reserved across five commits and still does nothing. Either it has one job you can name in a sentence — and then it's a two-line callback, not a <code>ui.py</code> — or it doesn't need to exist yet. A menu framework for a four-button device with a 1.5 s screen refresh is the classic thing that eats a weekend and ships nothing.</p>
+
+<div class="card" style="margin-top:1.6rem">
+  <p style="margin:0"><strong>The keeper:</strong> the burn-time pacing at <code>printer.py:395</code> is real hardware calibration, derived from the datasheet's heat model and matched against the Arduino reference. It looks like a magic sleep. It isn't. Don't let anyone "simplify" it into a fixed delay — including me on a later pass.</p>
+</div>
+
+<footer>
+  Generated from a read of <code>master</code> @ <code>ee848ed</code> · no code was modified.
+</footer>
+
+</div>
+<script src="../docs/inbox.js" defer></script>
+</body>
+</html>

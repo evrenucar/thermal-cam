@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>thermal-cam — grill session</title>
+<style>
+  :root {
+    --bg:#fbfaf7; --panel:#fff; --ink:#16150f; --dim:#5f5c50; --rule:#e2ded2;
+    --accent:#b4451f; --accent-soft:#fdf0e9; --code-bg:#f3f0e7;
+    --ok:#2f6b3a; --ok-soft:#eaf4ec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#14140f; --panel:#1c1c16; --ink:#eceadf; --dim:#9b978a; --rule:#2e2d24;
+      --accent:#ec7a4a; --accent-soft:#2a1b12; --code-bg:#23231b;
+      --ok:#79b98a; --ok-soft:#16241a;
+    }
+  }
+  :root[data-theme="dark"]{--bg:#14140f;--panel:#1c1c16;--ink:#eceadf;--dim:#9b978a;--rule:#2e2d24;--accent:#ec7a4a;--accent-soft:#2a1b12;--code-bg:#23231b;--ok:#79b98a;--ok-soft:#16241a;}
+  :root[data-theme="light"]{--bg:#fbfaf7;--panel:#fff;--ink:#16150f;--dim:#5f5c50;--rule:#e2ded2;--accent:#b4451f;--accent-soft:#fdf0e9;--code-bg:#f3f0e7;--ok:#2f6b3a;--ok-soft:#eaf4ec;}
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:16px/1.65 ui-sans-serif,-apple-system,"Segoe UI",system-ui,sans-serif;
+       -webkit-font-smoothing:antialiased}
+  .wrap{max-width:56rem;margin:0 auto;padding:2.5rem 1.5rem 10rem}
+  code{font-family:ui-monospace,"Cascadia Code",Consolas,monospace;font-size:.87em;
+       background:var(--code-bg);padding:.12em .38em;border-radius:3px}
+  a{color:var(--accent)}
+
+  header{border-bottom:2px solid var(--ink);padding-bottom:1.2rem;margin-bottom:1.5rem}
+  h1{font-size:clamp(1.8rem,5vw,2.5rem);margin:0 0 .35rem;letter-spacing:-.02em;font-weight:640}
+  h1 span{color:var(--accent)}
+  .sub{color:var(--dim);font-size:.95rem;margin:0}
+
+  .note{background:var(--accent-soft);border:1px solid var(--rule);border-left:3px solid var(--accent);
+        border-radius:8px;padding:1rem 1.2rem;margin:1.5rem 0;font-size:.93rem}
+  .note p{margin:.4rem 0}
+  .note p:first-child{margin-top:0} .note p:last-child{margin-bottom:0}
+
+  .round{display:flex;align-items:center;gap:.75rem;margin:3rem 0 .5rem;
+         font:600 .74rem/1 ui-monospace,Consolas,monospace;letter-spacing:.1em;
+         text-transform:uppercase;color:var(--accent)}
+  .round::after{content:"";flex:1;height:1px;background:var(--rule)}
+  .round-sub{color:var(--dim);font-size:.88rem;margin:.1rem 0 0}
+
+  .q{background:var(--panel);border:1px solid var(--rule);border-radius:10px;
+     padding:1.4rem 1.5rem;margin:1.1rem 0;transition:border-color .15s}
+  .q.done{border-color:var(--ok)}
+  .qhead{display:flex;gap:.7rem;align-items:baseline;margin-bottom:.5rem}
+  .qnum{font:600 .74rem/1 ui-monospace,Consolas,monospace;color:var(--accent);
+        background:var(--accent-soft);padding:.34rem .45rem;border-radius:4px;flex:none}
+  .q h2{font-size:1.1rem;margin:0;font-weight:640;letter-spacing:-.01em;line-height:1.4}
+  .why{color:var(--dim);font-size:.92rem;margin:.5rem 0 0}
+  .why code{font-size:.85em}
+
+  .rec{background:var(--ok-soft);border:1px solid var(--rule);border-radius:7px;
+       padding:.75rem .95rem;margin:.9rem 0;font-size:.9rem}
+  .rec b{color:var(--ok)}
+
+  .opts{display:flex;flex-direction:column;gap:.1rem;margin:.9rem 0 .3rem}
+  .opts label{display:flex;gap:.6rem;align-items:flex-start;padding:.5rem .6rem;
+              border-radius:6px;cursor:pointer;font-size:.94rem}
+  .opts label:hover{background:var(--code-bg)}
+  .opts input{margin:.35rem 0 0;flex:none;accent-color:var(--accent);width:1rem;height:1rem}
+  .opts .pick{font-size:.7rem;color:var(--ok);font-weight:700;letter-spacing:.05em;
+              border:1px solid currentColor;border-radius:3px;padding:.1rem .3rem;
+              margin-left:.4rem;white-space:nowrap}
+
+  .zone{border:1.5px dashed var(--rule);border-radius:8px;padding:.5rem;margin-top:.7rem;
+        transition:border-color .15s,background .15s}
+  .zone.over{border-color:var(--accent);background:var(--accent-soft)}
+  textarea{width:100%;border:none;background:transparent;color:var(--ink);resize:vertical;
+           min-height:4.5rem;padding:.5rem .6rem;font:inherit;font-size:.93rem;outline:none}
+  textarea::placeholder{color:var(--dim);opacity:.75}
+  .hint{font-size:.76rem;color:var(--dim);padding:0 .6rem .35rem;display:flex;
+        justify-content:space-between;gap:1rem;flex-wrap:wrap}
+
+  .atts{display:flex;flex-wrap:wrap;gap:.5rem;padding:0 .6rem .5rem}
+  .att{display:flex;align-items:center;gap:.45rem;background:var(--code-bg);
+       border:1px solid var(--rule);border-radius:6px;padding:.3rem .4rem;
+       font:.76rem ui-monospace,Consolas,monospace;max-width:15rem}
+  .att img{width:2rem;height:2rem;object-fit:cover;border-radius:3px;flex:none}
+  .att .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .att button{border:none;background:none;color:var(--dim);cursor:pointer;
+              font-size:1rem;line-height:1;padding:0 .1rem;flex:none}
+  .att button:hover{color:var(--accent)}
+
+  .bar{position:fixed;left:0;right:0;bottom:0;background:var(--panel);
+       border-top:1px solid var(--rule);padding:.85rem 1.5rem;
+       display:flex;gap:1rem;align-items:center;justify-content:center;flex-wrap:wrap;
+       box-shadow:0 -4px 20px rgba(0,0,0,.06);z-index:10}
+  .bar .prog{font:.85rem ui-monospace,Consolas,monospace;color:var(--dim)}
+  button.act{font:600 .92rem inherit;padding:.6rem 1.4rem;border-radius:7px;
+             border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
+  button.act:hover{filter:brightness(1.08)}
+  button.ghost{background:transparent;color:var(--accent)}
+  #status{font-size:.85rem;color:var(--dim);flex-basis:100%;text-align:center}
+  #status.good{color:var(--ok)} #status.bad{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>thermal-cam <span>/ grill</span></h1>
+  <p class="sub">Product direction, the Zero 2W port, and the emulator. 13 questions.</p>
+</header>
+
+<div class="note">
+  <p><b>How this works.</b> Tick what fits, or ignore the options entirely and write your own answer — the free-text box beats the checkboxes every time. Drop files onto any answer box, or paste an image straight into it (photos of the rig, printouts, sketches all help).</p>
+  <p>Every question carries my recommended answer. Argue with it — that's the point.</p>
+  <p><b>I will not build anything from this until you confirm we've reached a shared understanding.</b> Answer what you can, hit Submit, and I'll read it back before touching code.</p>
+</div>
+
+<p class="round">Round 1 — product<span></span></p>
+<p class="round-sub">Everything below depends on these three. If they change, most of Round 2 changes with them.</p>
+
+<section class="q" data-id="q1">
+  <div class="qhead"><span class="qnum">01</span><h2>What is this, described to someone who isn't you?</h2></div>
+  <p class="why">The code already answers this implicitly — no auth, no storage management, no paper-out recovery, a hardcoded <code>"Thermal Camera"</code> footer on every print. That's a personal object, not a product for strangers. I want it stated out loud, because it decides what we're allowed to skip.</p>
+  <div class="rec"><b>My recommendation:</b> a novelty/art instant camera for you and friends. It matches what's built, and committing to it lets you delete whole categories of work (jam recovery, unattended boot, storage limits) with a clear conscience.</div>
+  <div class="opts">
+    <label><input type="checkbox" value="Novelty/art instant camera for me and friends"><span>Novelty / art instant camera, for me and friends</span><span class="pick">REC</span></label>
+    <label><input type="checkbox" value="Event and party photo booth, strangers operate it"><span>Event / party photo booth — strangers operate it</span></label>
+    <label><input type="checkbox" value="Personal journaling or daily-photo object"><span>Personal journaling / daily-photo object</span></label>
+    <label><input type="checkbox" value="Open hardware kit others build themselves"><span>Open hardware kit others build themselves</span></label>
+    <label><input type="checkbox" value="Commercial product to sell"><span>Commercial product to sell</span></label>
+    <label><input type="checkbox" value="Not decided yet"><span>Genuinely not decided yet</span></label>
+  </div>
+</section>
+
+<section class="q" data-id="q2">
+  <div class="qhead"><span class="qnum">02</span><h2>Who physically operates it, and can they be told how?</h2></div>
+  <p class="why">"Strangers, unattended" is a different machine. It needs paper-out detection wired up (<code>has_paper()</code> exists in the driver and is never called), jam recovery, and a boot that survives someone yanking the power mid-print.</p>
+  <div class="rec"><b>My recommendation:</b> you and friends, with one sentence of explanation. Unattended-stranger mode is a v2 conversation, and it roughly doubles the failure handling.</div>
+  <div class="opts">
+    <label><input type="checkbox" value="Only me"><span>Only me</span></label>
+    <label><input type="checkbox" value="Me and friends, with a sentence of explanation"><span>Me and friends, with a sentence of explanation</span><span class="pick">REC</span></label>
+    <label><input type="checkbox" value="Strangers, unattended"><span>Strangers, unattended</span></label>
+  </div>
+</section>
+
+<section class="q" data-id="q3">
+  <div class="qhead"><span class="qnum">03</span><h2>What powers it — on the plywood rig, and after?</h2></div>
+  <p class="why">The printer pulls roughly 1.5–2 A peaks while the head is burning, against a Zero 2W's ~0.35 A idle. This is the constraint most likely to produce weird, intermittent, wrongly-blamed-on-software faults — brownouts look like corrupted prints.</p>
+  <div class="rec"><b>My recommendation:</b> a wall adapter (5 V, 3 A+) on the plywood rig, then a USB power bank for the first portable build. An internal LiPo needs a charger board, protection circuitry and a fire-safety opinion — that's a sub-project, and it's not the interesting one.</div>
+  <div class="opts">
+    <label><input type="checkbox" value="Wall adapter 5V 3A+ on the rig"><span>Wall adapter (5 V, 3 A+) on the rig</span><span class="pick">REC</span></label>
+    <label><input type="checkbox" value="USB power bank for portable"><span>USB power bank for the first portable build</span><span class="pick">REC</span></label>
+    <label><input type="checkbox" value="Internal LiPo plus charger board"><span>Internal LiPo + charger board</span></label>
+    <label><input type="checkbox" value="Separate supplies for printer and Pi"><span>Separate supplies for printer and Pi</span></label>
+    <label><input type="checkbox" value="Not thought about it yet"><span>Haven't thought about it yet</span></label>
+  </div>
+</section>
+
+<p class="round">Round 2 — what survives the Zero 2W<span></span></p>
+<p class="round-sub">A Zero 2W is roughly 5× slower per core with 512 MB of RAM. Something has to give; these decide what.</p>
+
+<section class="q" data-id="q4">
+  <div class="qhead"><span class="qnum">04</span><h2>The live e-ink preview loop — does it survive?</h2></div>
+  <p class="why">This is the single most expensive thing in the codebase. <code>_capture_loop</code> spins with no sleep, grabbing 1640×1232 RGB, LANCZOS-resizing and Floyd–Steinberg dithering in Python — then throws away almost every frame, because the queue is <code>maxsize=1</code> and e-ink can't keep up. What survives is already ~1.5 s stale by the time you see it.</p>
+  <div class="rec"><b>My recommendation:</b> capture on button press only. You are paying a full core, and most of your RAM budget, for a laggy preview that arrives too late to compose with. Killing it removes the frame-dropper, the capture thread, and most of the Zero 2W CPU problem in one edit.</div>
+  <div class="opts">
+    <label><input type="checkbox" value="Capture on button press only, show result after"><span>Capture on button press only — show the result after</span><span class="pick">REC</span></label>
+    <label><input type="checkbox" value="Keep live preview as is"><span>Keep the live preview as it is</span></label>
+    <label><input type="checkbox" value="Keep live preview at much lower resolution"><span>Keep it, but at much lower resolution</span></label>
+    <label><input type="checkbox" value="Drop the e-ink panel entirely"><span>Drop the e-ink panel entirely</span></label>
+  </div>
+</section>
+
+<section class="q" data-id="q5">
+  <div class="qhead"><span class="qnum">05</span><h2>If live preview goes, what is the e-ink actually for?</h2></div>
+  <p class="why">Depends on 04. A panel that only shows a still image after the fact is doing a much smaller job — worth checking it still earns its place, its cost, and its GPIO.</p>
+  <div class="rec"><b>My recommendation:</b> last captured photo plus a one-line status. Confirming the shot worked is the only job preview was really doing; framing was never realistic at 1.5 s of lag.</div>
+  <div class="opts">
+    <label><input type="checkbox" value="Last captured photo plus one-line status"><span>Last captured photo + one-line status</span><span class="pick">REC</span></label>
+    <label><input type="checkbox" value="Status and menu only, no image"><span>Status / menu only, no image</span></label>
+    <label><input type="checkbox" value="Photo, with menu on button press"><span>Photo, with menu on button press</span></label>
+    <label><input type="checkbox" value="Nothing, remove the panel"><span>Nothing — remove the panel</span></label>
+  </div>
+</section>
+
+<section class="q" data-id="q6">
+  <div class="qhead"><span class="qnum">06</span><h2>Capture resolution?</h2></div>
+  <p class="why">The printer is 384 px wide. You currently capture 1640×1232 — about 4× the print width in each axis — and throw the detail away in a LANCZOS downscale. On a 512 MB board, those intermediates are not free.</p>
+  <div class="rec"><b>My recommendation:</b> drop to ~640×480. Still comfortably above print width, so dithering has real data to work with, but a fraction of the RAM and resize cost. Measure on actual hardware before locking it in — this is a guess until a Zero 2W says otherwise.</div>
+  <div class="opts">
+    <label><input type="checkbox" value="Drop to about 640x480"><span>Drop to ~640×480</span><span class="pick">REC</span></label>
+    <label><input type="checkbox" value="Keep 1640x1232"><span>Keep 1640×1232</span></label>
+    <label><input type="checkbox" value="Capture at print size directly"><span>Capture at print size directly (384 px wide)</span></label>
+    <label><input type="checkbox" value="Keep high res only when saving to disk"><span>High res only when saving to disk, low res for print</span></label>
+  </div>
+</section>
+
+<section class="q" data-id="q7">
+  <div class="qhead"><span class="qnum">07</span><h2>The Zero 2W serial port conflict — how do we handle it?</h2></div>
+  <p class="why">The printer is on <code>/dev/ttyAMA0</code> at 9600. On a Zero 2W the PL011 UART behind <code>ttyAMA0</code> is claimed by Bluetooth by default. The fallback, mini-UART <code>ttyS0</code>, has a baud rate that drifts with CPU frequency scaling. Your original bitmap corruption bug <em>was</em> a baud mismatch — a drifting baud rate would bring it back intermittently, which is far worse than reliably.</p>
+  <div class="rec"><b>My recommendation:</b> <code>dtoverlay=disable-bt</code> in <code>/boot/config.txt</code> and keep <code>ttyAMA0</code>. You are not using Bluetooth. Do not accept a UART whose baud rate depends on the governor.</div>
+  <div class="opts">
+    <label><input type="checkbox" value="dtoverlay=disable-bt and keep ttyAMA0"><span><code>dtoverlay=disable-bt</code>, keep <code>ttyAMA0</code></span><span class="pick">REC</span></label>
+    <label><input type="checkbox" value="Use mini-UART ttyS0"><span>Use mini-UART <code>ttyS0</code></span></label>
+    <label><input type="checkbox" value="USB-serial adapter"><span>USB-serial adapter</span></label>
+    <label><input type="checkbox" value="Unknown, will test on hardware"><span>Don't know yet — will test on hardware</span></label>
+  </div>
+</section>
+
+<p class="round">Round 3 — the browser emulator<span></span></p>
+<p class="round-sub">Your mid-session ask: test the preview and menu with no camera and no hardware.</p>
+
+<section class="q" data-id="q8">
+  <div class="qhead"><span class="qnum">08</span><h2>Where does the dithering run in the emulator?</h2></div>
+  <p class="why">This is the only real design decision in the emulator, and it's about trust. If the browser dithers differently from the device, the emulator will quietly lie to you about what the panel shows — and an emulator you can't trust is worse than none, because you'll design against it anyway.</p>
+  <div class="rec"><b>My recommendation:</b> POST the image to <code>tools/serve.py</code> and let the real PIL pipeline return the bitmap. The server already exists. One dither implementation means the emulator physically cannot drift from the device. Cost: you need Python and Pillow on the dev machine, which you already do.</div>
+  <div class="opts">
+    <label><input type="checkbox" value="POST to serve.py, real PIL pipeline returns bitmap"><span>POST to <code>serve.py</code> — the real PIL pipeline returns the bitmap</span><span class="pick">REC</span></label>
+    <label><input type="checkbox" value="Reimplement Floyd-Steinberg in JS"><span>Reimplement Floyd–Steinberg in JS (no server needed)</span></label>
+    <label><input type="checkbox" value="Both, JS for speed and PIL to verify"><span>Both — JS for live speed, PIL to verify</span></label>
+  </div>
+</section>
+
+<section class="q" data-id="q9">
+  <div class="qhead"><span class="qnum">09</span><h2>What does the emulator need to cover?</h2></div>
+  <p class="why">Both output targets are small and fully specified — 176×264 and 384 px, both 1-bit — so the emulator can be pixel-exact rather than an approximation. The question is scope.</p>
+  <div class="rec"><b>My recommendation:</b> everything except simulated timing at first — then add timing early and honestly. A menu that feels fine at instant speed can be unusable at 1.5 s per refresh, and that's exactly the mistake an emulator should catch rather than cause.</div>
+  <div class="opts">
+    <label><input type="checkbox" value="E-ink panel render 176x264 1-bit"><span>E-ink panel render (176×264, 1-bit)</span><span class="pick">REC</span></label>
+    <label><input type="checkbox" value="Printer output as paper strip 384px"><span>Printer output as a paper strip (384 px)</span><span class="pick">REC</span></label>
+    <label><input type="checkbox" value="Four buttons plus keyboard shortcuts"><span>The 4 buttons + keyboard shortcuts</span><span class="pick">REC</span></label>
+    <label><input type="checkbox" value="Menu navigation states"><span>Menu navigation states</span><span class="pick">REC</span></label>
+    <label><input type="checkbox" value="Fake camera via file drop, paste or webcam"><span>Fake camera — file drop, paste, or webcam</span><span class="pick">REC</span></label>
+    <label><input type="checkbox" value="Simulated timing for refresh and print speed"><span>Simulated timing (1.5 s refresh, print speed)</span><span class="pick">REC</span></label>
+    <label><input type="checkbox" value="Simulated failures like paper out or jam"><span>Simulated failures (paper out, jam, brownout)</span></label>
+  </div>
+</section>
+
+<section class="q" data-id="q10">
+  <div class="qhead"><span class="qnum">10</span><h2>What does the menu button actually do?</h2></div>
+  <p class="why">GPIO 6 has been reserved across five commits, <code>lib/int/ui.py</code> is zero bytes, and the callback logs and returns. Either it has a job you can name in a sentence, or it doesn't need to exist yet. A menu <em>framework</em> for a four-button device with a 1.5 s screen is a classic weekend that ships nothing.</p>
+  <div class="rec"><b>My recommendation:</b> reprint last photo, plus safe shutdown. Those are the two things you'll genuinely want while holding the object. Heat and contrast tuning belongs in <code>config.py</code> where you can sweep values, not behind four buttons and a slow screen.</div>
+  <div class="opts">
+    <label><input type="checkbox" value="Reprint last photo"><span>Reprint last photo</span><span class="pick">REC</span></label>
+    <label><input type="checkbox" value="Safe shutdown or power off"><span>Safe shutdown / power off</span><span class="pick">REC</span></label>
+    <label><input type="checkbox" value="Nothing, delete the button"><span>Nothing — delete the button and the stub</span></label>
+    <label><input type="checkbox" value="Print settings heat and contrast"><span>Print settings (heat / contrast)</span></label>
+    <label><input type="checkbox" value="Toggle dither mode"><span>Toggle dither mode</span></label>
+    <label><input type="checkbox" value="Photo count and paper status"><span>Photo count / paper status</span></label>
+  </div>
+</section>
+
+<p class="round">Round 4 — process<span></span></p>
+<p class="round-sub">Sequencing. Cheap to get right now, expensive to get wrong later.</p>
+
+<section class="q" data-id="q11">
+  <div class="qhead"><span class="qnum">11</span><h2>Plywood rig: bench fixture, or v1 enclosure?</h2></div>
+  <p class="why">These have opposite requirements. A fixture wants every wire exposed and every board on standoffs you can unscrew. An enclosure wants things hidden and tidy. Trying to be both produces something that's awkward to probe <em>and</em> doesn't look good.</p>
+  <div class="rec"><b>My recommendation:</b> bench fixture, explicitly ugly. If it has to look presentable you'll stop probing it, and probing it is the entire reason it exists.</div>
+  <div class="opts">
+    <label><input type="checkbox" value="Bench fixture, ugly is fine"><span>Bench fixture — ugly is fine</span><span class="pick">REC</span></label>
+    <label><input type="checkbox" value="Enclosure prototype, should look presentable"><span>Enclosure prototype — should look presentable</span></label>
+    <label><input type="checkbox" value="Fixture now, second sheet as enclosure later"><span>Fixture now, a second sheet as enclosure later</span></label>
+  </div>
+</section>
+
+<section class="q" data-id="q12">
+  <div class="qhead"><span class="qnum">12</span><h2>When do we actually port to the Zero 2W?</h2></div>
+  <p class="why">Porting a moving target means debugging the port and the features simultaneously, and you can never tell which one broke the print.</p>
+  <div class="rec"><b>My recommendation:</b> after the capture→print path is frozen. Freeze it on the Pi 5, where iteration is fast, then port once against a known-good behaviour you can diff against.</div>
+  <div class="opts">
+    <label><input type="checkbox" value="After capture to print path is frozen"><span>After the capture→print path is frozen</span><span class="pick">REC</span></label>
+    <label><input type="checkbox" value="Now, in parallel with feature work"><span>Now, in parallel with feature work</span></label>
+    <label><input type="checkbox" value="After the emulator exists and UI is settled"><span>After the emulator exists and the UI is settled</span></label>
+    <label><input type="checkbox" value="Whenever a Zero 2W arrives"><span>Whenever a Zero 2W physically arrives</span></label>
+  </div>
+</section>
+
+<section class="q" data-id="q13">
+  <div class="qhead"><span class="qnum">13</span><h2>What have I got wrong?</h2></div>
+  <p class="why">I've read the code, not the thing. If a recommendation above is based on a wrong assumption about the hardware, the paper, the printer's real behaviour, or what you actually want this to be — this is where to say so. Photos of the rig or of bad printouts are worth more than my inference from source.</p>
+  <div class="rec"><b>My recommendation:</b> no options here on purpose. Free text and attachments only.</div>
+</section>
+
+<div class="bar">
+  <span class="prog" id="prog">0 / 13 answered</span>
+  <button class="act ghost" id="clear" type="button">Clear draft</button>
+  <button class="act ghost" id="copy" type="button">Copy as text</button>
+  <button class="act" id="submit" type="button">Submit answers</button>
+  <span id="status"></span>
+</div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+  const KEY = "thermal-cam-grill-v1";
+  const qs = [...document.querySelectorAll(".q")];
+  const atts = new Map();            // qid -> [{name, type, data}]
+  const statusEl = document.getElementById("status");
+  const progEl = document.getElementById("prog");
+
+  // --- build the answer box for every question -----------------------------
+  qs.forEach(q => {
+    const id = q.dataset.id;
+    atts.set(id, []);
+    const zone = document.createElement("div");
+    zone.className = "zone";
+    zone.innerHTML =
+      '<textarea placeholder="Your answer — overrides the options above if they don\'t fit."></textarea>' +
+      '<div class="hint"><span>Drop files here, or paste an image (Ctrl/Cmd+V)</span><span class="ct"></span></div>' +
+      '<div class="atts"></div>';
+    q.appendChild(zone);
+
+    const ta = zone.querySelector("textarea");
+
+    // paste images straight into the answer
+    ta.addEventListener("paste", e => {
+      const files = [...(e.clipboardData && e.clipboardData.items || [])]
+        .filter(i => i.kind === "file").map(i => i.getAsFile()).filter(Boolean);
+      if (files.length) { e.preventDefault(); addFiles(id, files); }
+    });
+
+    // drag and drop anywhere on the question card
+    ["dragenter", "dragover"].forEach(ev =>
+      q.addEventListener(ev, e => { e.preventDefault(); zone.classList.add("over"); }));
+    ["dragleave", "dragend"].forEach(ev =>
+      q.addEventListener(ev, e => { if (!q.contains(e.relatedTarget)) zone.classList.remove("over"); }));
+    q.addEventListener("drop", e => {
+      e.preventDefault(); zone.classList.remove("over");
+      if (e.dataTransfer && e.dataTransfer.files.length) addFiles(id, [...e.dataTransfer.files]);
+    });
+
+    q.addEventListener("input", save);
+    q.addEventListener("change", save);
+  });
+
+  function addFiles(id, files) {
+    let pending = files.length;
+    files.forEach(f => {
+      const r = new FileReader();
+      r.onload = () => {
+        atts.get(id).push({ name: f.name || "pasted-image.png", type: f.type || "application/octet-stream", data: r.result });
+        if (--pending === 0) { renderAtts(id); save(); }
+      };
+      r.onerror = () => { if (--pending === 0) { renderAtts(id); save(); } };
+      r.readAsDataURL(f);
+    });
+  }
+
+  function renderAtts(id) {
+    const q = document.querySelector('.q[data-id="' + id + '"]');
+    const box = q.querySelector(".atts");
+    const list = atts.get(id);
+    box.innerHTML = "";
+    list.forEach((a, i) => {
+      const el = document.createElement("div");
+      el.className = "att";
+      const thumb = a.type.startsWith("image/") ? '<img src="' + a.data + '" alt="">' : "";
+      el.innerHTML = thumb + '<span class="nm">' + esc(a.name) + "</span>";
+      const x = document.createElement("button");
+      x.type = "button"; x.textContent = "×"; x.title = "Remove";
+      x.onclick = () => { list.splice(i, 1); renderAtts(id); save(); };
+      el.appendChild(x);
+      box.appendChild(el);
+    });
+    q.querySelector(".ct").textContent = list.length ? list.length + " attached" : "";
+  }
+
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  // --- collect / persist ---------------------------------------------------
+  function collect() {
+    return qs.map(q => {
+      const id = q.dataset.id;
+      return {
+        id: id,
+        question: q.querySelector("h2").textContent.trim(),
+        selected: [...q.querySelectorAll(".opts input:checked")].map(i => i.value),
+        text: q.querySelector("textarea").value.trim(),
+        attachments: atts.get(id).map(a => ({ name: a.name, type: a.type, data: a.data }))
+      };
+    });
+  }
+
+  function answered(a) { return a.selected.length || a.text || a.attachments.length; }
+
+  function save() {
+    const data = collect();
+    data.forEach(a => { const q = document.querySelector('.q[data-id="' + a.id + '"]'); q.classList.toggle("done", !!answered(a)); });
+    progEl.textContent = data.filter(answered).length + " / " + qs.length + " answered";
+    try { localStorage.setItem(KEY, JSON.stringify(data)); }
+    catch (e) { /* quota: attachments are big; draft just won't persist */ }
+  }
+
+  function restore() {
+    let data; try { data = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { return; }
+    if (!Array.isArray(data)) return;
+    data.forEach(a => {
+      const q = document.querySelector('.q[data-id="' + a.id + '"]');
+      if (!q) return;
+      q.querySelector("textarea").value = a.text || "";
+      (a.selected || []).forEach(v => {
+        const i = [...q.querySelectorAll(".opts input")].find(x => x.value === v);
+        if (i) i.checked = true;
+      });
+      atts.set(a.id, (a.attachments || []).slice());
+      renderAtts(a.id);
+    });
+    save();
+  }
+
+  // --- submit --------------------------------------------------------------
+  document.getElementById("submit").onclick = () => {
+    const answers = collect();
+    const n = answers.filter(answered).length;
+    if (!n) { setStatus("Nothing to submit yet.", "bad"); return; }
+    setStatus("Saving…", "");
+    fetch("/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ form: "grill", title: document.title, saved: new Date().toISOString(), answers: answers })
+    })
+      .then(r => r.json().then(j => ({ ok: r.ok, j: j })))
+      .then(({ ok, j }) => {
+        if (!ok || !j.ok) throw new Error(j.error || "server refused it");
+        setStatus("Saved " + n + " of " + qs.length + " to " + j.path + (j.attachments ? " (+" + j.attachments + " files)" : "") + " — tell Claude to read it.", "good");
+      })
+      .catch(e => setStatus("Save failed: " + e.message +
+        ". Is tools/serve.py still running? Your answers are safe — use “Copy as text” instead.", "bad"));
+  };
+
+  // Fallback for when serve.py isn't running: plain text you can paste into chat.
+  // Attachments are listed by name only — image bytes need the server.
+  document.getElementById("copy").onclick = () => {
+    const answered_ = collect().filter(answered);
+    if (!answered_.length) { setStatus("Nothing to copy yet.", "bad"); return; }
+    const text = answered_.map(a => {
+      const lines = ["## " + a.id.toUpperCase() + " — " + a.question];
+      if (a.selected.length) lines.push("Picked: " + a.selected.join("; "));
+      if (a.text) lines.push(a.text);
+      if (a.attachments.length)
+        lines.push("Attached (not included — paste these into chat yourself): " +
+                   a.attachments.map(x => x.name).join(", "));
+      return lines.join("\n");
+    }).join("\n\n");
+    const n = answered_.reduce((s, a) => s + a.attachments.length, 0);
+    navigator.clipboard.writeText(text).then(
+      () => setStatus("Copied " + answered_.length + " answer(s) — paste into chat." +
+                      (n ? " " + n + " image(s) must be pasted separately." : ""), "good"),
+      () => setStatus("Clipboard blocked by the browser — select the text manually.", "bad"));
+  };
+
+  document.getElementById("clear").onclick = () => {
+    if (!confirm("Clear all answers and attachments on this page?")) return;
+    localStorage.removeItem(KEY);
+    qs.forEach(q => {
+      q.querySelector("textarea").value = "";
+      q.querySelectorAll(".opts input").forEach(i => (i.checked = false));
+      atts.set(q.dataset.id, []); renderAtts(q.dataset.id);
+    });
+    save(); setStatus("Draft cleared.", "");
+  };
+
+  function setStatus(msg, cls) { statusEl.textContent = msg; statusEl.className = cls; }
+
+  restore();
+})();
+</script>
+<script src="../docs/inbox.js" defer></script>
+</body>
+</html>
