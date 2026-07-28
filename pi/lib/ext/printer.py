@@ -289,14 +289,10 @@ class ThermalPrinter(object):
             width is enforced to 384 and padded with white if needed. """
         black_and_white_pixels = [1] * 384 * h
         if w > 384:
-
-            # print "Bitmap width too large: %s. Needs to be under 384" % w
-            return False
-        elif w < 384:
-            print("hi")
-            # print "Bitmap under 384 (%s), padding the rest with white" % w
-
-        # print "Bitmap size", w
+            # Caller must resize first. Returning False here used to surface as a
+            # TypeError on a subscript further down, which named the wrong thing.
+            raise ValueError("bitmap width %s exceeds printer width 384" % w)
+        # w < 384 is fine: the row is already padded with white above.
 
         if type(pixels[0]) == int: # single channel
             # print " => single channel"
@@ -320,9 +316,9 @@ class ThermalPrinter(object):
                 else:
                     black_and_white_pixels[i % w + i // w * 384] = 1
         else:
-            # print "Unsupported pixels array type. Please send plain list (single channel, RGB or RGBA)"
-            # print "Type pixels[0]", type(pixels[0]), "haz", pixels[0]
-            return False
+            raise ValueError(
+                "unsupported pixel type %s (%r) - send a plain list of "
+                "single-channel, RGB or RGBA values" % (type(pixels[0]), pixels[0]))
 
         return black_and_white_pixels
 
