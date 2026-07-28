@@ -1,21 +1,22 @@
 {
-  "updated": "2026-07-28T18:48:00Z",
+  "updated": "2026-07-28T21:20:00Z",
   "now": {
-    "task": "Idle — waiting on you",
-    "detail": "Inbox and status board are built, wired into every page, and tested including the offline queue. Next up is the dither parity test unless you redirect me.",
-    "state": "idle"
+    "task": "Blocked on GitHub Pages",
+    "detail": "Work is committed and pushed to branch feature/emulator-and-docs. Pages cannot be enabled from here: the token has push but not admin on doodek/thermal-cam, and the repo is private, which needs a paid plan for Pages. Needs a decision from you.",
+    "state": "blocked"
   },
   "next": [
-    { "task": "Dither parity test", "why": "Keeps the JS emulator honest against PIL without manual syncing. Q8 asked for exactly this." },
-    { "task": "Decide what to do about print duration", "why": "The emulator measured ~56s to print one photo. 26.3s of that is serial time at 9600 baud." },
-    { "task": "Turn on GitHub Pages", "why": "Settings -> Pages -> master /docs. Needs a commit and push first." },
-    { "task": "Untrack ESP32 build output", "why": "1338 of 1452 tracked files. Waiting on your go-ahead: it lands as a huge deletion." }
+    { "task": "Dither parity test", "why": "Fixed images through JS and PIL, assert identical output. Keeps the emulator honest without you maintaining two implementations. Not blocked -- starting this next unless redirected." },
+    { "task": "Decide what to do about print duration", "why": "The emulator measured about 56s to print one photo. 26.3s of that is pure serial time at 9600 baud. Raising the baud rate is the obvious lever." }
   ],
   "blocked": [
-    { "task": "Menu design beyond 'reprint last'", "why": "Q10: you wanted to see a device layout first. The emulator now shows a 4-item menu on a real 176x264 panel." },
-    { "task": "Serial port approach for Zero 2W", "why": "Q7: BT and WiFi must stay usable, so disable-bt is out. Needs a bench test, not a decision." }
+    { "task": "GitHub Pages + public link", "why": "Needs admin on the repo, and a public repo (or a paid plan). See the three options in chat -- your call, I will not publish a private repo without you saying so." },
+    { "task": "Untrack ESP32 build output", "why": "1338 of 1452 tracked files. Still waiting on your explicit go-ahead: it lands as a very large deletion." },
+    { "task": "Serial port approach for Zero 2W", "why": "Q7: BT and WiFi must stay usable, so disable-bt is out. Mini-UART with a pinned clock, or a USB-serial adapter. This is a bench test, not a paper decision." },
+    { "task": "Menu design beyond 'reprint last'", "why": "Q10: you wanted a device layout first. The emulator now shows a 4-item menu on a real 176x264 panel at real refresh speed -- go press E and see how it feels." }
   ],
   "done": [
+    { "task": "Committed to a branch", "note": "feature/emulator-and-docs, 4 commits, pushed. master is untouched." },
     { "task": "Inbox widget", "note": "Floating + button on every page. Queues to localStorage when the server is down, drains when it returns." },
     { "task": "This status board", "note": "Polls status.json every 5s." },
     { "task": "Browser emulator", "note": "Static, phone-friendly, mirrors main.py and printer.py. Revealed the ~56s print time." },
