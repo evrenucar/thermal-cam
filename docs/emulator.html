@@ -87,12 +87,19 @@
            opacity:.5;text-align:center;padding-top:.5rem;min-height:1.3rem;letter-spacing:.04em}
   .keyecho b{color:var(--accent);opacity:1}
 
-  /* ---- focus mode ---- */
-  body.focus .wrap{max-width:34rem}
+  /* ---- focus mode: must fit the viewport, never scroll ---- */
+  body.focus{overflow:hidden;height:100dvh}
+  body.focus .wrap{max-width:30rem;height:100dvh;padding:.6rem .7rem;
+                   display:flex;align-items:center;overflow:hidden}
   body.focus .papercol,body.focus .box,body.focus details,body.focus h1,body.focus .sub{display:none}
-  body.focus .stage{grid-template-columns:1fr}
-  body.focus .device{margin-top:1rem}
+  body.focus .stage{grid-template-columns:1fr;width:100%;gap:0}
+  body.focus .device{margin:0;padding:.7rem}
   body.focus #panel{max-width:none}
+  body.focus .pad{grid-template-columns:repeat(3,2.7rem);grid-template-rows:repeat(3,2.7rem);margin-top:.6rem}
+  body.focus .padrow{margin-top:.5rem}
+  body.focus .shutter{padding:.55rem 1.2rem}
+  body.focus .keyecho{padding-top:.35rem;min-height:1.1rem}
+  body.focus .spec,body.focus .statusline{padding-top:.35rem}
   body.focus .exitfocus{display:flex}
   .exitfocus{display:none;position:fixed;top:.8rem;right:.8rem;z-index:50;
              background:var(--panel);border:1px solid var(--rule);color:var(--ink);
@@ -198,7 +205,7 @@
       <div class="screen"><canvas id="panel" width="176" height="264"></canvas></div>
       <div class="spec">
         <span>Waveshare 2.7&quot; e&#8209;ink</span>
-        <span><b>176&#215;264</b> · 1&#8209;bit · fits whole frame</span>
+        <span><b>176&#215;264</b> · 1&#8209;bit · <span id="specFraming">cropped to fill</span></span>
       </div>
       <div class="statusline">
         <span id="stState">idle</span>
@@ -256,6 +263,21 @@
       <!-- a real <label for> beats a JS click shim: it is native, needs no
            user-gesture plumbing, and works on mobile where input.click() does not -->
       <input type="file" id="file" accept="image/*" class="vh">
+
+      <div class="row" style="margin-top:.6rem"><label>Rotation</label>
+        <select id="rotate">
+          <option value="0">0° — webcam as-is</option>
+          <option value="90" selected>90° — as config.py</option>
+          <option value="180">180°</option>
+          <option value="270">270°</option>
+        </select></div>
+      <div class="row"><label>Framing</label>
+        <select id="fitmode">
+          <option value="fill" selected>Fill — crop to panel</option>
+          <option value="fit">Fit — white bars</option>
+        </select></div>
+      <div class="row"><label>Click sound</label>
+        <input type="checkbox" id="sound" checked></div>
     </div>
 
     <div class="box">
@@ -373,14 +395,37 @@ const log = (msg, cls) => {
   $('log').scrollTop = 1e9;
 };
 
-let state = 'idle';        // idle | capturing | refreshing | printing | menu | error
+let state = 'idle';        // idle | live | photo | refreshing | printing | menu | error
 let source = null;         // HTMLImageElement | HTMLVideoElement
-let lastCapture = null;    // {panelBits, printBits, printH} of the frozen shot
+let lastCapture = null;    // {panel, print} of the frozen shot
+let frozen = null;         // non-null while a captured photo is held on screen
+let live = false;          // live preview loop running
 let paperRows = 0;
-let capturing = false;
 let busy = false;
 let menuIndex = 0;
 let paperOut = false;
+
+/* ---------- click feedback ------------------------------------------------
+   A 1.5s refresh with no acknowledgement feels broken. Two distinct sounds:
+   a short high tick the instant a control is pressed, and a lower one when the
+   panel has actually finished redrawing. On the real device the press tick
+   would be haptic instead. */
+let actx = null;
+function beep(freq, dur, vol) {
+  if (!$('sound').checked) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'square'; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(); o.stop(actx.currentTime + dur);
+  } catch (e) { /* audio unavailable; not worth breaking the app over */ }
+}
+const clickPress = () => { beep(1500, 0.025, 0.07); if (navigator.vibrate) navigator.vibrate(8); };
+const clickLand  = () => { beep(700, 0.055, 0.05);  if (navigator.vibrate) navigator.vibrate([0, 20, 12]); };
 
 // Menu is a proposal, not a decision -- Q10 confirmed "reprint last" only.
 // The rest are here so the layout can be judged on a real 176x264 panel.
@@ -421,13 +466,28 @@ const wait = ms => {
 
 /* ---------- image pipeline (mirrors main.py) ---------- */
 
-// PIL rotate(90, expand=True) is counter-clockwise.
-function rotate90(src, sw, sh) {
+const ROT  = () => +$('rotate').value;          // device is 90; a webcam usually wants 0
+const FILL = () => $('fitmode').value === 'fill';
+
+// Re-derive on any camera setting change, so the panel label never lies about
+// what you are looking at and the live view picks the change up immediately.
+['rotate', 'fitmode'].forEach(id => $(id).addEventListener('change', () => {
+  $('specFraming').textContent = FILL() ? 'cropped to fill' : 'fits whole frame';
+  if (frozen) { frozen = { panel: toPanelBits(), print: toPrintBits() };
+                if (frozen.panel) drawPanel(frozen.panel); }
+}));
+
+// PIL rotate(angle, expand=True) is counter-clockwise.
+function rotateBy(src, sw, sh, deg) {
+  if (!deg) return src;
+  const swap = (deg === 90 || deg === 270);
   const c = document.createElement('canvas');
-  c.width = sh; c.height = sw;
+  c.width = swap ? sh : sw;
+  c.height = swap ? sw : sh;
   const x = c.getContext('2d');
-  x.translate(0, sw);
-  x.rotate(-Math.PI / 2);
+  if (deg === 90)       { x.translate(0, sw);        x.rotate(-Math.PI / 2); }
+  else if (deg === 180) { x.translate(sw, sh);       x.rotate(Math.PI); }
+  else                  { x.translate(sh, 0);        x.rotate(Math.PI / 2); }
   x.drawImage(src, 0, 0, sw, sh);
   return c;
 }
@@ -466,33 +526,50 @@ function sourceSize() {
   return (w && h) ? { w, h } : null;
 }
 
-// main.py prepare_for_display: rotate, thumbnail into the panel, centre on white, dither.
+// main.py prepare_for_display: rotate, scale into the panel, dither.
+// "fit" is what main.py does today (letterbox on white). "fill" crops to the
+// panel instead, which is what you want when the source aspect isn't 2:3.
 function toPanelBits() {
   const sz = sourceSize(); if (!sz) return null;
-  const rot = CAMERA_ROTATION ? rotate90(source, sz.w, sz.h) : source;
+  const rot = rotateBy(source, sz.w, sz.h, ROT());
   const rw = rot.width || sz.w, rh = rot.height || sz.h;
-  const scale = Math.min(PANEL_W / rw, PANEL_H / rh);     // thumbnail() preserves aspect
-  const dw = Math.max(1, Math.round(rw * scale)), dh = Math.max(1, Math.round(rh * scale));
 
   const c = document.createElement('canvas');
   c.width = PANEL_W; c.height = PANEL_H;
   const x = c.getContext('2d');
-  x.fillStyle = '#fff'; x.fillRect(0, 0, PANEL_W, PANEL_H);   // white background
-  x.drawImage(rot, (PANEL_W - dw) >> 1, (PANEL_H - dh) >> 1, dw, dh);
+  x.fillStyle = '#fff'; x.fillRect(0, 0, PANEL_W, PANEL_H);
+
+  const s = FILL() ? Math.max(PANEL_W / rw, PANEL_H / rh)    // cover, then centre-crop
+                   : Math.min(PANEL_W / rw, PANEL_H / rh);   // contain, white bars
+  const dw = Math.max(1, Math.round(rw * s)), dh = Math.max(1, Math.round(rh * s));
+  x.drawImage(rot, Math.round((PANEL_W - dw) / 2), Math.round((PANEL_H - dh) / 2), dw, dh);
   return dither(grayscale(x.getImageData(0, 0, PANEL_W, PANEL_H)), PANEL_W, PANEL_H);
 }
 
-// main.py prepare_for_printer: rotate, scale to 384 wide, dither. No padding.
+// main.py prepare_for_printer: rotate, scale to 384 wide, dither.
+// In "fill" mode the print is cropped to the same framing the panel showed, so
+// what you previewed is what comes out -- otherwise they disagree on aspect.
 function toPrintBits() {
   const sz = sourceSize(); if (!sz) return null;
-  const rot = CAMERA_ROTATION ? rotate90(source, sz.w, sz.h) : source;
+  const rot = rotateBy(source, sz.w, sz.h, ROT());
   const rw = rot.width || sz.w, rh = rot.height || sz.h;
-  const ph = Math.max(1, Math.round(rh * (PRINT_W / rw)));
+
+  let ph, sw, sh, sx, sy;
+  if (FILL()) {
+    ph = Math.round(PRINT_W * (PANEL_H / PANEL_W));      // same 2:3 shape as the panel
+    const s = Math.max(PRINT_W / rw, ph / rh);
+    sw = PRINT_W / s; sh = ph / s;
+    sx = (rw - sw) / 2; sy = (rh - sh) / 2;
+  } else {
+    ph = Math.max(1, Math.round(rh * (PRINT_W / rw)));
+    sw = rw; sh = rh; sx = 0; sy = 0;
+  }
 
   const c = document.createElement('canvas');
   c.width = PRINT_W; c.height = ph;
   const x = c.getContext('2d');
-  x.drawImage(rot, 0, 0, PRINT_W, ph);
+  x.fillStyle = '#fff'; x.fillRect(0, 0, PRINT_W, ph);
+  x.drawImage(rot, sx, sy, sw, sh, 0, 0, PRINT_W, ph);
   return { bits: dither(grayscale(x.getImageData(0, 0, PRINT_W, ph)), PRINT_W, ph), h: ph };
 }
 
@@ -560,9 +637,19 @@ function fitPaper() {
   $('btnZoom').textContent = 'Zoom ' + k + '×';
 }
 function fitPanel() {
-  // focus mode is for judging the interface, so let the panel use the room
-  const cap = document.body.classList.contains('focus') ? 528 : 264;
-  crispWidth(panel, PANEL_W, Math.min(panel.parentElement.clientWidth - 16, cap), 0);
+  const focus = document.body.classList.contains('focus');
+  const avail = Math.min(panel.parentElement.clientWidth - 16, focus ? 528 : 264);
+  let k = crispWidth(panel, PANEL_W, avail, 0);
+  if (!focus) return;
+
+  // Nothing may fall below the fold in focus mode, and predicting the chrome
+  // height is brittle. Measure what actually happened and step the panel down
+  // until the whole device fits. k is an integer scale, so this terminates fast.
+  const device = document.querySelector('.device');
+  for (let guard = 0; guard < 8 && k > 1; guard++) {
+    if (device.getBoundingClientRect().bottom <= window.innerHeight - 4) break;
+    k = crispWidth(panel, PANEL_W, avail, k - 1);
+  }
 }
 addEventListener('resize', function () { fitPanel(); fitPaper(); });
 
@@ -677,46 +764,62 @@ async function refreshPanel(bits, note) {
   setState('refreshing', note);
   await wait(S().einkMs);
   drawPanel(bits);
-  setState(capturing ? 'capturing' : 'idle');
+  setState(live ? 'live' : (frozen ? 'photo' : 'idle'));
+  clickLand();
 }
 
-async function actCapture() {
-  if (!source) { panelText(['NO CAMERA', '', 'Drop an image or', 'start the webcam.']); log('no source', 'w'); return; }
-  capturing = !capturing;
-  if (capturing) {
-    log('capture started — panel refreshes every ' + S().einkMs + 'ms');
-    setState('capturing');
-    loop();
-  } else {
-    log('capture stopped, frame saved');
-    const bits = toPanelBits();
-    lastCapture = { panel: bits, print: toPrintBits() };
-    libAdd();
-    await refreshPanel(bits, 'saved');
-  }
+/* A camera shows a live view whenever it has a feed, and the shutter freezes
+   a frame. The old model made you toggle "capturing" on and off, which read as
+   idle-then-recording and left the shutter with nothing to end it. */
+function startLive() {
+  if (live || !source || busy) return;
+  live = true;
+  setState('live');
+  loop();
 }
+function stopLive() { live = false; }
 
-// The real _capture_loop spins with no sleep and drops frames the e-ink can't
-// keep up with. Reproduced here so the lag is visible rather than theoretical.
 async function loop() {
-  while (capturing && state !== 'printing') {
+  while (live && state === 'live') {
     const bits = toPanelBits();
     if (!bits) break;
-    lastCapture = { panel: bits, print: null };
-    // Floor the frame delay even at "instant" -- a zero-delay redraw loop pins a
-    // core for no visible benefit, which is the very thing this emulates.
-    await new Promise(r => setTimeout(r, Math.max(16, S().einkMs / (S().speed || 60))));
-    if (!capturing) break;
     drawPanel(bits);
+    // One refresh per e-ink cycle. On the real panel this is the hard ceiling;
+    // seeing it here is the point.
+    await new Promise(r => setTimeout(r, Math.max(60, S().einkMs / (S().speed || 1))));
   }
 }
+
+async function actShutter() {
+  if (busy) return;
+  if (!source) {
+    panelText(['NO CAMERA', '', 'Pick a file or', 'start the webcam.']); log('no source', 'w'); return;
+  }
+  if (frozen) {                       // second press returns to the live view
+    frozen = null; log('back to live view'); startLive(); return;
+  }
+  stopLive();
+  setState('refreshing', 'capturing');
+  const bits = toPanelBits();
+  frozen = { panel: bits, print: toPrintBits() };
+  lastCapture = frozen;
+  libAdd();
+  await wait(S().einkMs);
+  drawPanel(bits);
+  setState('photo', 'press shutter to resume');
+  clickLand();
+}
+
+// kept so the legacy GPIO row still does something recognisable
+function actCapture() { actShutter(); }
 
 async function actPrint() {
   if (busy) return;
   if (paperOut) { log('paper out — reload first', 'w'); panelText(['PAPER OUT', '', 'Load paper and', 'press Print.']); return; }
-  if (!lastCapture) { log('nothing captured yet', 'w'); panelText(['NO PHOTO', '', 'Press Capture', 'first.']); return; }
+  if (!frozen && !lastCapture) { log('nothing captured yet', 'w');
+    panelText(['NO PHOTO', '', 'Press the shutter', 'first.']); return; }
   busy = true;
-  capturing = false;
+  stopLive();
   const p = lastCapture.print || toPrintBits();
   if (!p) { busy = false; return; }
   lastCapture.print = p;
@@ -732,10 +835,10 @@ function drawMenu() {
 async function actMenu() {
   if (busy) return;
   if (state !== 'menu') {
-    capturing = false;
+    stopLive();
     setState('menu'); menuIndex = 0;
-    await wait(S().einkMs); drawMenu();
-    log('menu opened — Menu cycles, Print selects, Exit closes');
+    await wait(S().einkMs); drawMenu(); clickLand();
+    log('menu opened — up/down move, OK selects, left closes');
   } else {
     menuIndex = (menuIndex + 1) % MENU.length;
     await wait(S().einkMs);           // every move costs a full refresh. That is the point.
@@ -763,18 +866,19 @@ async function menuSelect() {
   if (item.act === 'shutdown') {
     await wait(S().einkMs);
     panelText(['SHUTTING DOWN', '', 'Safe to unplug.']);
-    setState('off'); capturing = false;
+    setState('off'); stopLive();
   }
 }
 
 function showIdle() {
+  if (source) { startLive(); return; }          // a feed means a live view, always
   if (lastCapture && lastCapture.panel) drawPanel(lastCapture.panel);
-  else panelText(['thermal-cam', '', 'Drop an image or', 'start the webcam,', 'then press', 'Capture.']);
+  else panelText(['thermal-cam', '', 'Pick a file or', 'start the webcam.', '', 'Live view starts', 'by itself.']);
 }
 
 async function actExit() {
   if (state === 'menu') { setState('idle'); await wait(S().einkMs); showIdle(); return; }
-  capturing = false; busy = false;
+  stopLive(); frozen = null; busy = false;
   setState('idle');
   log('exit pressed — app would quit');
   await wait(S().einkMs);
@@ -785,6 +889,7 @@ async function actExit() {
 function hit(act) {
   const el = document.querySelector('.btn[data-act="' + act + '"]');
   if (el) { el.classList.add('hit'); setTimeout(() => el.classList.remove('hit'), 110); }
+  clickPress();
   if (act === 'capture') actCapture();
   else if (act === 'print') state === 'menu' ? menuSelect() : actPrint();
   else if (act === 'menu') actMenu();
@@ -835,8 +940,8 @@ function flashPad(pad, on) {
 addEventListener('blur', clearPads);
 
 async function padPress(pad) {
-  echoKey(pad);
-  if (pad === 'shutter') { actCapture(); return; }
+  echoKey(pad); clickPress();
+  if (pad === 'shutter') { actShutter(); return; }
 
   if (state === 'menu') {
     if (pad === 'up')    { menuIndex = (menuIndex - 1 + MENU.length) % MENU.length;
@@ -878,8 +983,12 @@ addEventListener('keyup', e => {
 /* ---------- focus mode ---------- */
 function setFocus(on) {
   document.body.classList.toggle('focus', on);
-  $('nocam').hidden = (source === $('video'));
-  fitPanel(); fitPaper();
+  const cam = source === $('video');
+  $('nocam').hidden = cam;
+  // Without a webcam the panel is the only thing worth showing; the empty
+  // placeholder would just eat vertical room the panel could use.
+  $('focuscam').style.display = (on && cam) ? 'block' : 'none';
+  requestAnimationFrame(() => { fitPanel(); fitPaper(); });
 }
 $('focusLink').addEventListener('click', e => { e.preventDefault(); setFocus(true); });
 $('exitFocus').addEventListener('click', () => setFocus(false));
@@ -890,8 +999,7 @@ function useImage(src) {
   img.onload = () => {
     source = img; paperOut = false; setPaper();
     log('source: ' + img.naturalWidth + '×' + img.naturalHeight);
-    const bits = toPanelBits();
-    if (bits) { lastCapture = { panel: bits, print: null }; drawPanel(bits); }
+    frozen = null; startLive();
   };
   img.onerror = () => log('could not load that image', 'e');
   img.src = src;
@@ -937,8 +1045,8 @@ $('btnCam').addEventListener('click', async () => {
     source = v; paperOut = false; setPaper();
     $('btnCam').classList.add('on');
     $('nocam').hidden = true;
-    log('webcam started — ' + v.videoWidth + '×' + v.videoHeight, 'g');
-    const b = toPanelBits(); if (b) drawPanel(b);
+    log('webcam started — ' + v.videoWidth + '×' + v.videoHeight + ' — live view running', 'g');
+    frozen = null; startLive();
   } catch (err) {
     log('webcam refused: ' + err.message + (location.protocol === 'file:' ? ' (needs http/https)' : ''), 'e');
   }
@@ -1035,7 +1143,7 @@ function libRender() {
 function libRecall(e) {
   const img = new Image();
   img.onload = () => {
-    capturing = false;
+    stopLive(); frozen = null;
     source = img; libActive = e.id;
     lastCapture = { panel: toPanelBits(), print: null };   // re-derived, never cached
     if (lastCapture.panel) drawPanel(lastCapture.panel);
