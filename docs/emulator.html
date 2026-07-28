@@ -64,6 +64,45 @@
   .btn .gp{font:500 .58rem ui-monospace,Consolas,monospace;opacity:.6}
   .btn .kb{font:500 .55rem ui-monospace,Consolas,monospace;opacity:.45}
 
+  /* ---- d-pad: the proposed final interface ---- */
+  .pad{display:grid;grid-template-columns:repeat(3,3.1rem);grid-template-rows:repeat(3,3.1rem);
+       gap:.35rem;justify-content:center;margin-top:.9rem}
+  .pad .k{background:#3d3d38;border:1px solid #4d4d46;color:var(--case-ink);border-radius:9px;
+          display:grid;place-items:center;cursor:pointer;font-size:1.1rem;user-select:none;
+          -webkit-tap-highlight-color:transparent;transition:background .09s,transform .06s}
+  .pad .k:hover{background:#4a4a44}
+  .pad .k.hit{background:var(--accent);color:#fff;transform:scale(.94)}
+  .pad .k.ctr{font:700 .62rem ui-sans-serif,system-ui,sans-serif;border-radius:50%}
+  .pad .sp{visibility:hidden}
+  .padrow{display:flex;gap:.5rem;justify-content:center;align-items:center;margin-top:.7rem;flex-wrap:wrap}
+  .shutter{background:var(--accent);border:none;color:#fff;border-radius:99px;
+           padding:.7rem 1.5rem;font:700 .85rem ui-sans-serif,system-ui,sans-serif;cursor:pointer;
+           -webkit-tap-highlight-color:transparent;transition:transform .06s,filter .1s;
+           display:flex;align-items:center;gap:.5rem}
+  .shutter:hover{filter:brightness(1.1)}
+  .shutter.hit,.shutter:active{transform:scale(.95)}
+  .shutter .kb{font:500 .6rem ui-monospace,Consolas,monospace;opacity:.7}
+
+  .keyecho{font:600 .7rem ui-monospace,Consolas,monospace;color:var(--case-ink);
+           opacity:.5;text-align:center;padding-top:.5rem;min-height:1.3rem;letter-spacing:.04em}
+  .keyecho b{color:var(--accent);opacity:1}
+
+  /* ---- focus mode ---- */
+  body.focus .wrap{max-width:34rem}
+  body.focus .papercol,body.focus .box,body.focus details,body.focus h1,body.focus .sub{display:none}
+  body.focus .stage{grid-template-columns:1fr}
+  body.focus .device{margin-top:1rem}
+  body.focus #panel{max-width:none}
+  body.focus .exitfocus{display:flex}
+  .exitfocus{display:none;position:fixed;top:.8rem;right:.8rem;z-index:50;
+             background:var(--panel);border:1px solid var(--rule);color:var(--ink);
+             border-radius:8px;padding:.45rem .8rem;cursor:pointer;
+             font:600 .78rem ui-sans-serif,system-ui,sans-serif;align-items:center;gap:.4rem}
+  body.focus .focuscam{display:block}
+  .focuscam{display:none;margin-top:.9rem;border-radius:10px;overflow:hidden;background:#000}
+  .focuscam video{display:block;width:100%;height:auto;transform:scaleX(-1)}
+  .focuscam .nocam{color:var(--dim);font-size:.82rem;text-align:center;padding:1.4rem 1rem}
+
   /* ---- paper ---- */
   .papercol{min-width:0}
   .paperwrap{background:var(--paper);border:1px solid var(--rule);border-radius:4px;
@@ -135,10 +174,13 @@
 <body>
 <div class="wrap">
 
+<button class="exitfocus" id="exitFocus" type="button">&#10005; Exit focus <span style="opacity:.5">ESC</span></button>
+
 <h1>thermal&#8209;cam <span>/ emulator</span></h1>
 <p class="sub">The interface, with no camera, no Pi and no printer.
    Pixel targets are exact: 176×264 1&#8209;bit panel, 384&nbsp;px paper.
-   <a href="index.html">← project home</a></p>
+   <a href="index.html">← project home</a> ·
+   <a href="#" id="focusLink">device focus mode</a></p>
 
 <div class="stage">
 
@@ -154,12 +196,43 @@
         <span id="stState">idle</span>
         <span id="stPaper">paper: ok</span>
       </div>
-      <div class="btns">
-        <div class="btn" data-act="capture"><span>Capture</span><span class="gp">GPIO 5</span><span class="kb">Q</span></div>
-        <div class="btn" data-act="print"><span>Print</span><span class="gp">GPIO 13</span><span class="kb">W</span></div>
-        <div class="btn" data-act="menu"><span>Menu</span><span class="gp">GPIO 6</span><span class="kb">E</span></div>
-        <div class="btn" data-act="exit"><span>Exit</span><span class="gp">GPIO 19</span><span class="kb">R</span></div>
+      <!-- proposed final interface: 4-way + centre, plus a dedicated shutter -->
+      <div class="pad">
+        <div class="sp"></div>
+        <div class="k" data-pad="up"    title="Arrow Up">&#9650;</div>
+        <div class="sp"></div>
+        <div class="k" data-pad="left"  title="Arrow Left">&#9664;</div>
+        <div class="k ctr" data-pad="ok" title="Enter">OK</div>
+        <div class="k" data-pad="right" title="Arrow Right">&#9654;</div>
+        <div class="sp"></div>
+        <div class="k" data-pad="down"  title="Arrow Down">&#9660;</div>
+        <div class="sp"></div>
       </div>
+      <div class="padrow">
+        <button class="shutter" data-pad="shutter" type="button">
+          <span>&#9673; Take photo</span><span class="kb">SPACE</span>
+        </button>
+      </div>
+      <div class="keyecho" id="keyecho">press arrows, enter or space</div>
+
+      <div class="focuscam" id="focuscam">
+        <video id="video" playsinline muted></video>
+        <div class="nocam" id="nocam">No webcam running — leave focus mode and press <b>Use webcam</b>.</div>
+      </div>
+
+      <details style="margin-top:.9rem;background:transparent;border-color:#4d4d46">
+        <summary style="color:var(--case-ink);opacity:.75;font-size:.8rem">Current wiring (4 GPIO buttons)</summary>
+        <div class="dbody" style="padding:0 0 .3rem">
+          <p class="hint" style="color:var(--case-ink);opacity:.5">What <code>main.py</code> drives today.
+             The pad above is the proposed replacement.</p>
+          <div class="btns" style="margin-top:.2rem">
+            <div class="btn" data-act="capture"><span>Capture</span><span class="gp">GPIO 5</span><span class="kb">Q</span></div>
+            <div class="btn" data-act="print"><span>Print</span><span class="gp">GPIO 13</span><span class="kb">W</span></div>
+            <div class="btn" data-act="menu"><span>Menu</span><span class="gp">GPIO 6</span><span class="kb">E</span></div>
+            <div class="btn" data-act="exit"><span>Exit</span><span class="gp">GPIO 19</span><span class="kb">R</span></div>
+          </div>
+        </div>
+      </details>
     </div>
 
     <div class="box">
@@ -172,7 +245,6 @@
         </div>
       </div>
       <input type="file" id="file" accept="image/*" hidden>
-      <video id="video" playsinline muted></video>
     </div>
 
     <div class="box">
@@ -302,7 +374,7 @@ let paperOut = false;
 // Menu is a proposal, not a decision -- Q10 confirmed "reprint last" only.
 // The rest are here so the layout can be judged on a real 176x264 panel.
 const MENU = [
-  { label: 'Reprint last photo', act: 'reprint', firm: true },
+  { label: 'Print this photo',   act: 'reprint', firm: true },
   { label: 'Paper status',       act: 'paper',   firm: false },
   { label: 'Shutdown',           act: 'shutdown',firm: false },
   { label: 'Close menu',         act: 'close',   firm: true },
@@ -477,7 +549,9 @@ function fitPaper() {
   $('btnZoom').textContent = 'Zoom ' + k + '×';
 }
 function fitPanel() {
-  crispWidth(panel, PANEL_W, Math.min(panel.parentElement.clientWidth - 16, 264), 0);
+  // focus mode is for judging the interface, so let the panel use the room
+  const cap = document.body.classList.contains('focus') ? 528 : 264;
+  crispWidth(panel, PANEL_W, Math.min(panel.parentElement.clientWidth - 16, cap), 0);
 }
 addEventListener('resize', function () { fitPanel(); fitPaper(); });
 
@@ -707,10 +781,97 @@ function hit(act) {
 }
 document.querySelectorAll('.btn').forEach(b =>
   b.addEventListener('click', () => hit(b.dataset.act)));
-addEventListener('keydown', e => {
-  const k = { q: 'capture', w: 'print', e: 'menu', r: 'exit' }[e.key.toLowerCase()];
-  if (k && !/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName)) { e.preventDefault(); hit(k); }
+
+/* ---------- d-pad: the proposed final interface -----------------------
+   Five controls plus a shutter, which is a very different interaction model
+   from the four independent GPIO buttons main.py drives today. Up/Down move,
+   OK selects, Left backs out, and the shutter is always capture -- so the
+   photo button never depends on where you are in a menu.                  */
+const PAD_KEYS = {
+  ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+  Enter: 'ok', ' ': 'shutter', Spacebar: 'shutter'
+};
+const PAD_LABEL = { up: '▲ UP', down: '▼ DOWN', left: '◀ LEFT', right: '▶ RIGHT',
+                    ok: '● OK', shutter: '◉ SHUTTER' };
+
+function echoKey(pad) {
+  $('keyecho').innerHTML = '<b>' + PAD_LABEL[pad] + '</b>';
+  clearTimeout(echoKey._t);
+  echoKey._t = setTimeout(() => {
+    $('keyecho').textContent = 'press arrows, enter or space';
+  }, 900);
+}
+
+function clearPads() {
+  document.querySelectorAll('[data-pad].hit').forEach(el => el.classList.remove('hit'));
+}
+
+function flashPad(pad, on) {
+  const el = document.querySelector('[data-pad="' + pad + '"]');
+  if (!el) return;
+  if (on) {
+    el.classList.add('hit');
+    // A keyup can be missed if the window loses focus mid-press, which would
+    // leave the button lit for good. Release it on a timer regardless.
+    clearTimeout(el._rel);
+    el._rel = setTimeout(() => el.classList.remove('hit'), 1200);
+  } else {
+    clearTimeout(el._rel);
+    setTimeout(() => el.classList.remove('hit'), 60);
+  }
+}
+
+addEventListener('blur', clearPads);
+
+async function padPress(pad) {
+  echoKey(pad);
+  if (pad === 'shutter') { actCapture(); return; }
+
+  if (state === 'menu') {
+    if (pad === 'up')    { menuIndex = (menuIndex - 1 + MENU.length) % MENU.length;
+                           await wait(S().einkMs); drawMenu(); }
+    else if (pad === 'down') { menuIndex = (menuIndex + 1) % MENU.length;
+                           await wait(S().einkMs); drawMenu(); }
+    else if (pad === 'ok')   { menuSelect(); }
+    else if (pad === 'left') { setState('idle'); await wait(S().einkMs); showIdle();
+                               log('menu closed'); }
+    return;
+  }
+  // idle
+  if (pad === 'ok')    actMenu();
+  else if (pad === 'right') actPrint();
+  else if (pad === 'left')  actExit();
+  else log('pad ' + pad + ' — nothing bound here yet', 'w');
+}
+
+document.querySelectorAll('[data-pad]').forEach(el => {
+  el.addEventListener('click', () => { flashPad(el.dataset.pad, true); flashPad(el.dataset.pad, false);
+                                       padPress(el.dataset.pad); });
 });
+
+const typing = () => /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
+
+addEventListener('keydown', e => {
+  if (typing()) return;
+  const pad = PAD_KEYS[e.key];
+  if (pad) { e.preventDefault(); if (!e.repeat) { flashPad(pad, true); padPress(pad); } return; }
+  if (e.key === 'Escape' && document.body.classList.contains('focus')) { setFocus(false); return; }
+  const k = { q: 'capture', w: 'print', e: 'menu', r: 'exit' }[e.key.toLowerCase()];
+  if (k) { e.preventDefault(); hit(k); }
+});
+addEventListener('keyup', e => {
+  const pad = PAD_KEYS[e.key];
+  if (pad) flashPad(pad, false);
+});
+
+/* ---------- focus mode ---------- */
+function setFocus(on) {
+  document.body.classList.toggle('focus', on);
+  $('nocam').hidden = (source === $('video'));
+  fitPanel(); fitPaper();
+}
+$('focusLink').addEventListener('click', e => { e.preventDefault(); setFocus(true); });
+$('exitFocus').addEventListener('click', () => setFocus(false));
 
 /* ---------- source loading ---------- */
 function useImage(src) {
@@ -748,6 +909,7 @@ $('btnCam').addEventListener('click', async () => {
   if (source === v) {                                   // toggle off
     (v.srcObject?.getTracks() || []).forEach(t => t.stop());
     v.srcObject = null; source = null; $('btnCam').classList.remove('on');
+    $('nocam').hidden = false;
     log('webcam stopped'); return;
   }
   try {
@@ -755,6 +917,7 @@ $('btnCam').addEventListener('click', async () => {
     await v.play();
     source = v; paperOut = false; setPaper();
     $('btnCam').classList.add('on');
+    $('nocam').hidden = true;
     log('webcam started — ' + v.videoWidth + '×' + v.videoHeight, 'g');
     const b = toPanelBits(); if (b) drawPanel(b);
   } catch (err) {
