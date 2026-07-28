@@ -1,4 +1,46 @@
-# Where we left off — 2026-07-28
+# Where we left off — 2026-07-29
+
+## Read this first
+
+Everything is committed to **`feature/emulator-and-docs`** and pushed to both
+remotes. `master` is untouched on both. Nothing is half-finished on disk.
+
+**Live:** <https://evrenucar.github.io/thermal-cam/> ·
+[emulator](https://evrenucar.github.io/thermal-cam/emulator.html) ·
+[status](https://evrenucar.github.io/thermal-cam/status.html)
+
+**Locally:** `python3 -u tools/serve.py 8765`, then `/docs/emulator.html`.
+Run it in your own shell — background tasks here get reaped.
+
+### Two remotes, on purpose
+
+| Remote | Repo | Why |
+|---|---|---|
+| `origin` | `doodek/thermal-cam` (private) | The original. Push access only, no admin. |
+| `public` | `evrenucar/thermal-cam` (public) | Pages serves `/docs` from here. |
+
+Pages could never work on `origin`: no admin rights, and Pages on a private repo
+needs a paid plan. Pushing to both is manual —
+`git push origin feature/emulator-and-docs` then
+`git push public feature/emulator-and-docs:master`.
+
+### Emulator: the control model changed
+
+The old capture toggle is gone. It was the wrong model for a camera and it
+caused the stuck-on-capturing bug — the shutter was wired to a toggle, so one
+press started capturing and nothing ended it.
+
+Now: **a source starts a live view by itself**, one refresh per e-ink cycle.
+The **shutter freezes** a frame; pressing it again resumes live. Controls are a
+4-way pad plus centre OK (arrow keys + Enter) and a dedicated shutter (Space),
+with a press tick and a settle tick so the 1.5 s refresh is acknowledged
+immediately.
+
+Rotation is selectable — 90° is right for the device's mounted camera but wrong
+for a webcam, which is why the feed looked sideways. Framing defaults to
+**fill** (crop) rather than letterbox, and the print crops to match the preview.
+
+
 
 Resume point for the review/design session. Delete this once it's stale.
 

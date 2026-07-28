@@ -1,32 +1,31 @@
 {
-  "updated": "2026-07-28T21:45:00Z",
+  "updated": "2026-07-29T00:40:00Z",
   "now": {
-    "task": "Live at evrenucar.github.io/thermal-cam",
-    "detail": "Pages is up on the public mirror. Emulator pixel shimmer fixed, both outputs labelled, capture library added. Next is the dither parity test unless you redirect me.",
-    "state": "idle"
+    "task": "Paused — state saved",
+    "detail": "Emulator reworked to a live-view camera model. All work committed to feature/emulator-and-docs and pushed to both remotes. Pick up from docs/STATE.md.",
+    "state": "paused"
   },
   "next": [
-    { "task": "Dither parity test", "why": "Fixed images through JS and PIL, assert identical output. Keeps the emulator honest without you maintaining two implementations. Not blocked -- starting this next unless redirected." },
-    { "task": "Decide what to do about print duration", "why": "The emulator measured about 56s to print one photo. 26.3s of that is pure serial time at 9600 baud. Raising the baud rate is the obvious lever." }
+    { "task": "Dither parity test", "why": "Fixed images through JS and PIL, assert identical output. Keeps the emulator honest without you maintaining two implementations. Not started." },
+    { "task": "Decide what to do about print duration", "why": "About 56s to print one photo, 26.3s of it pure serial at 9600 baud. Raising the baud rate is the obvious lever." },
+    { "task": "Try the d-pad in focus mode", "why": "Q10 was deferred until you could see a layout. It is now on a real 176x264 panel at real refresh speed, with click feedback." }
   ],
   "blocked": [
-    { "task": "Keeping the two repos in sync", "why": "doodek/thermal-cam is private and is still the origin. evrenucar/thermal-cam is the public mirror that Pages serves. Pushing to both is manual for now -- say the word if you want one to become canonical." },
     { "task": "Untrack ESP32 build output", "why": "1338 of 1452 tracked files. Still waiting on your explicit go-ahead: it lands as a very large deletion." },
-    { "task": "Serial port approach for Zero 2W", "why": "Q7: BT and WiFi must stay usable, so disable-bt is out. Mini-UART with a pinned clock, or a USB-serial adapter. This is a bench test, not a paper decision." },
-    { "task": "Menu design beyond 'reprint last'", "why": "Q10: you wanted a device layout first. The emulator now shows a 4-item menu on a real 176x264 panel at real refresh speed -- go press E and see how it feels." }
+    { "task": "Serial port approach for Zero 2W", "why": "Q7: BT and WiFi must stay usable, so disable-bt is out. Mini-UART with a pinned clock, or a USB-serial adapter. A bench test, not a paper decision." },
+    { "task": "Menu contents beyond 'print this photo'", "why": "Q10. The emulator now shows a 4-item menu you can actually navigate." },
+    { "task": "Two repos in sync", "why": "doodek/thermal-cam is private origin; evrenucar/thermal-cam is the public mirror Pages serves. Pushing to both is manual." }
   ],
   "done": [
+    { "task": "Emulator: live-view camera model", "note": "Source starts a live view by itself; shutter freezes and re-presses resume. Fixes the stuck-on-capturing bug." },
+    { "task": "Emulator: framing controls", "note": "Selectable rotation and a fill mode that crops instead of letterboxing. Print matches the previewed framing." },
+    { "task": "Emulator: click + haptic feedback", "note": "Press tick and a settle tick, so a 1.5s refresh is acknowledged immediately." },
+    { "task": "Emulator: focus mode fits the viewport", "note": "Measures and steps the panel down until the device fits. No scrolling, no clipping." },
+    { "task": "Emulator: file picking fixed", "note": "display:none blocked the picker on mobile; input value now cleared so the same file can be re-picked. Real Pick file button added." },
+    { "task": "Emulator: pixel shimmer fixed", "note": "Canvases sized so one source pixel covers a whole number of device pixels." },
     { "task": "Public site live", "note": "evrenucar.github.io/thermal-cam — Pages serving /docs from the public mirror." },
-    { "task": "Emulator pixel shimmer fixed", "note": "Canvases now sized so one source pixel covers a whole number of device pixels. The shimmer was fractional scaling at 125% Windows zoom." },
-    { "task": "Output labels + capture library", "note": "Panel and paper both labelled with resolution and physical size; library stores source frames and re-derives on recall." },
-    { "task": "Committed to a branch", "note": "feature/emulator-and-docs, 6 commits, pushed. master is untouched." },
-    { "task": "Inbox widget", "note": "Floating + button on every page. Queues to localStorage when the server is down, drains when it returns." },
-    { "task": "This status board", "note": "Polls status.json every 5s." },
-    { "task": "Browser emulator", "note": "Static, phone-friendly, mirrors main.py and printer.py. Revealed the ~56s print time." },
-    { "task": "Landing page", "note": "docs/index.html, works on a phone with nothing installed." },
+    { "task": "Output labels + capture library", "note": "Both outputs labelled with resolution and physical size; library stores source frames and re-derives on recall." },
     { "task": "First tests in the repo", "note": "pi/test_printer.py, 6 checks, mutation-verified." },
-    { "task": "Printer driver error handling", "note": "Width and pixel-type failures now name themselves." },
-    { "task": "Product direction recorded", "note": "docs/PRODUCT.md, all 13 grill answers." },
-    { "task": "Dead file cleanup", "note": "Shadowed e-ink fork and an unused vendor demo removed." }
+    { "task": "Product direction recorded", "note": "docs/PRODUCT.md, all 13 grill answers." }
   ]
 }
