@@ -69,8 +69,29 @@
   .paperwrap{background:var(--paper);border:1px solid var(--rule);border-radius:4px;
              padding:.6rem;max-height:32rem;overflow-y:auto;overflow-x:auto;
              box-shadow:inset 0 -8px 12px -8px rgba(0,0,0,.15)}
-  #paper{image-rendering:pixelated;width:100%;max-width:384px;height:auto;display:block;margin:0 auto}
+  /* width is set in JS to a whole number of device pixels per source pixel --
+     see crispWidth(). A fractional scale (e.g. 384px at 125% Windows zoom)
+     resamples unevenly and makes the pixels shimmer as rows append. */
+  #paper{image-rendering:pixelated;height:auto;display:block;margin:0 auto}
   .paperempty{color:var(--dim);font-size:.85rem;text-align:center;padding:2.5rem 1rem}
+
+  /* ---- spec labels ---- */
+  .spec{font:.7rem/1.5 ui-monospace,Consolas,monospace;color:var(--dim);
+        padding:.5rem .1rem 0;display:flex;justify-content:space-between;gap:.5rem;flex-wrap:wrap}
+  .spec b{color:var(--accent);font-weight:600}
+  .device .spec{color:var(--case-ink);opacity:.6}
+  .device .spec b{color:var(--accent)}
+
+  /* ---- library ---- */
+  .lib{display:flex;gap:.45rem;overflow-x:auto;padding:.2rem .1rem .4rem}
+  .lib .shot{flex:none;width:3.6rem;cursor:pointer;border:1px solid var(--rule);
+             border-radius:5px;padding:.15rem;background:var(--panel);transition:border-color .12s}
+  .lib .shot:hover{border-color:var(--accent)}
+  .lib .shot.on{border-color:var(--accent);border-width:2px;padding:.1rem}
+  .lib .shot img{width:100%;height:2.6rem;object-fit:cover;border-radius:3px;display:block}
+  .lib .shot span{font:.58rem ui-monospace,Consolas,monospace;color:var(--dim);
+                  display:block;text-align:center;padding-top:.15rem}
+  .libempty{color:var(--dim);font-size:.8rem;padding:.4rem .1rem}
 
   .box{background:var(--panel);border:1px solid var(--rule);border-radius:10px;
        padding:.9rem 1rem;margin-top:1rem}
@@ -124,6 +145,10 @@
   <div>
     <div class="device">
       <div class="screen"><canvas id="panel" width="176" height="264"></canvas></div>
+      <div class="spec">
+        <span>Waveshare 2.7&quot; e&#8209;ink</span>
+        <span><b>176&#215;264</b> · 1&#8209;bit · fits whole frame</span>
+      </div>
       <div class="statusline">
         <span id="stState">idle</span>
         <span id="stPaper">paper: ok</span>
@@ -148,18 +173,50 @@
       <input type="file" id="file" accept="image/*" hidden>
       <video id="video" playsinline muted></video>
     </div>
+
+    <div class="box">
+      <h2>Library <span style="font-weight:400;color:var(--dim);font-size:.78rem">— tap to reload &amp; reprint</span></h2>
+      <div class="lib" id="lib"></div>
+      <div class="libempty" id="libempty">No captures yet. Press Capture twice to save one.</div>
+      <div class="mini" style="justify-content:flex-start">
+        <button type="button" id="btnLibClear">Clear library</button>
+      </div>
+    </div>
+
+    <details>
+      <summary>Why the panel and the paper differ</summary>
+      <div class="dbody">
+        <p class="hint">Same photo, two very different targets — and the difference is
+           faithful to <code>main.py</code>, which builds them on separate paths.</p>
+        <div class="row"><label>Panel</label><span style="flex:1 1 12rem;font-size:.82rem">
+          <code>prepare_for_display</code> — scaled to <b>fit inside</b> 176&#215;264 and centred on
+          white, so a frame that isn't 2:3 gets white bars. About <b>46k pixels</b>.</span></div>
+        <div class="row"><label>Paper</label><span style="flex:1 1 12rem;font-size:.82rem">
+          <code>prepare_for_printer</code> — scaled so the <b>width</b> is 384, height follows.
+          No letterboxing, no crop. Often <b>4&#215; more pixels</b> than the panel.</span></div>
+        <p class="hint" style="margin-top:.6rem">So the paper shows more detail and no white bars,
+           while the panel is a low-resolution preview of the same framing. Both are dithered
+           with Floyd–Steinberg, but dithering ~46k pixels and ~200k pixels from the same image
+           produces visibly different grain.</p>
+      </div>
+    </details>
   </div>
 
   <!-- ============ PAPER ============ -->
   <div class="papercol">
     <div class="box" style="margin-top:0">
-      <h2>Paper <span style="font-weight:400;color:var(--dim);font-size:.8rem">— 58 mm, 384 px</span></h2>
+      <h2>Paper <span style="font-weight:400;color:var(--dim);font-size:.8rem">— 58 mm thermal</span></h2>
       <div class="paperwrap" id="paperwrap">
         <div class="paperempty" id="paperempty">Nothing printed yet.</div>
         <canvas id="paper" width="384" height="0" hidden></canvas>
       </div>
+      <div class="spec">
+        <span><b>384&#215;<span id="specRows">0</span></b> px · 1&#8209;bit</span>
+        <span id="specMm">48 mm wide · 0 mm long</span>
+      </div>
       <div class="mini" style="justify-content:flex-start;margin-top:.7rem">
         <button type="button" id="btnTear">Tear off</button>
+        <button type="button" id="btnZoom">Zoom 1&#215;</button>
       </div>
     </div>
 
@@ -398,13 +455,44 @@ function setPaper() {
   $('stPaper').textContent = 'paper: ' + (paperOut ? 'OUT' : 'ok');
 }
 
+/* ---------- crisp scaling ----------------------------------------------
+   Pick a CSS width where one source pixel covers a whole number of DEVICE
+   pixels. At 125% Windows scaling a 384px-wide canvas lands on 480 device
+   pixels -- 1.25 per source pixel -- so rows resample unevenly and appear to
+   shift as the print grows. Zooming the page hides it by landing on a
+   friendlier ratio, which is the symptom that gives it away.               */
+let paperZoom = 0;                       // 0 = auto-fit, else a forced multiple
+
+function crispWidth(el, srcW, avail, forced) {
+  const dpr = window.devicePixelRatio || 1;
+  const k = Math.max(1, forced || Math.floor(avail * dpr / srcW));
+  el.style.width = (srcW * k / dpr) + 'px';
+  return k;
+}
+
+function fitPaper() {
+  if (paper.hidden) return;
+  const k = crispWidth(paper, PRINT_W, $('paperwrap').clientWidth - 20, paperZoom);
+  $('btnZoom').textContent = 'Zoom ' + k + '×';
+}
+function fitPanel() {
+  crispWidth(panel, PANEL_W, Math.min(panel.parentElement.clientWidth - 16, 264), 0);
+}
+addEventListener('resize', function () { fitPanel(); fitPaper(); });
+
 /* ---------- paper ---------- */
+function updatePaperSpec() {
+  $('specRows').textContent = paperRows;
+  // 203 dpi heads are 8 dots/mm, so 384 dots is 48 mm across.
+  $('specMm').textContent = '48 mm wide · ' + (paperRows / 8).toFixed(0) + ' mm long';
+}
+
 function paperAppend(bits, w, h, faint) {
   $('paperempty').hidden = true; paper.hidden = false;
-  const keep = rctx.getImageData(0, 0, PRINT_W, paperRows || 1);
   const had = paperRows;
+  const keep = had ? rctx.getImageData(0, 0, PRINT_W, had) : null;
   paper.height = paperRows + h;
-  if (had) rctx.putImageData(keep, 0, 0);
+  if (keep) rctx.putImageData(keep, 0, 0);
 
   const img = rctx.createImageData(w, h);
   for (let i = 0; i < w * h; i++) {
@@ -415,6 +503,8 @@ function paperAppend(bits, w, h, faint) {
   }
   rctx.putImageData(img, 0, had);
   paperRows += h;
+  fitPaper();                    // canvas grew: re-pin to a whole-device-pixel scale
+  updatePaperSpec();
   $('paperwrap').scrollTop = 1e9;
 }
 
@@ -515,6 +605,7 @@ async function actCapture() {
     log('capture stopped, frame saved');
     const bits = toPanelBits();
     lastCapture = { panel: bits, print: toPrintBits() };
+    libAdd();
     await refreshPanel(bits, 'saved');
   }
 }
@@ -689,11 +780,96 @@ $('btnTest').addEventListener('click', () => {
 $('btnTear').addEventListener('click', () => {
   paperRows = 0; paper.height = 0; paper.hidden = true;
   $('paperempty').hidden = false; paperOut = false; setPaper();
+  updatePaperSpec();
   log('paper torn off');
 });
 
+$('btnZoom').addEventListener('click', () => {
+  const dpr = window.devicePixelRatio || 1;
+  const fit = Math.max(1, Math.floor(($('paperwrap').clientWidth - 20) * dpr / PRINT_W));
+  paperZoom = paperZoom >= 4 ? 0 : (paperZoom || fit) + 1;   // cycle, then back to auto-fit
+  fitPaper();
+});
+
+/* ---------- library --------------------------------------------------
+   Stores the SOURCE frame, not the dithered output, and re-derives both
+   views on recall. One pipeline, so a recalled shot cannot disagree with a
+   fresh one. Thumbnails are JPEG to keep localStorage small.             */
+const LIB_KEY = 'thermal-cam-library', LIB_MAX = 12;
+let library = [];
+let libActive = null;
+
+function libLoad() {
+  try { library = JSON.parse(localStorage.getItem(LIB_KEY) || '[]'); }
+  catch (e) { library = []; }
+  libRender();
+}
+function libSave() {
+  try { localStorage.setItem(LIB_KEY, JSON.stringify(library)); }
+  catch (e) { // quota: drop oldest until it fits, rather than losing everything
+    while (library.length > 1) {
+      library.shift();
+      try { localStorage.setItem(LIB_KEY, JSON.stringify(library)); return; } catch (e2) {}
+    }
+    log('library full — older shots dropped', 'w');
+  }
+}
+
+function libAdd() {
+  const sz = sourceSize(); if (!sz) return;
+  const c = document.createElement('canvas');
+  const scale = Math.min(1, 480 / Math.max(sz.w, sz.h));
+  c.width = Math.round(sz.w * scale); c.height = Math.round(sz.h * scale);
+  c.getContext('2d').drawImage(source, 0, 0, c.width, c.height);
+  const entry = {
+    id: 'c' + paperRows + '_' + library.length + '_' + Math.floor(performance.now()),
+    at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    src: c.toDataURL('image/jpeg', 0.72), w: sz.w, h: sz.h
+  };
+  library.push(entry);
+  if (library.length > LIB_MAX) library.shift();
+  libActive = entry.id;
+  libSave(); libRender();
+  log('saved to library (' + library.length + '/' + LIB_MAX + ')');
+}
+
+function libRender() {
+  const box = $('lib');
+  box.innerHTML = '';
+  $('libempty').hidden = library.length > 0;
+  library.slice().reverse().forEach(e => {
+    const d = document.createElement('div');
+    d.className = 'shot' + (e.id === libActive ? ' on' : '');
+    d.title = e.w + '×' + e.h + ' at ' + e.at;
+    const im = document.createElement('img'); im.src = e.src; im.alt = '';
+    const s = document.createElement('span'); s.textContent = e.at;
+    d.appendChild(im); d.appendChild(s);
+    d.onclick = () => libRecall(e);
+    box.appendChild(d);
+  });
+}
+
+function libRecall(e) {
+  const img = new Image();
+  img.onload = () => {
+    capturing = false;
+    source = img; libActive = e.id;
+    lastCapture = { panel: toPanelBits(), print: null };   // re-derived, never cached
+    if (lastCapture.panel) drawPanel(lastCapture.panel);
+    libRender();
+    log('recalled ' + e.at + ' — press Print to reprint');
+  };
+  img.src = e.src;
+}
+
+$('btnLibClear').addEventListener('click', () => {
+  library = []; libActive = null;
+  try { localStorage.removeItem(LIB_KEY); } catch (err) {}
+  libRender(); log('library cleared');
+});
+
 /* ---------- boot ---------- */
-setPaper(); showIdle();
+setPaper(); showIdle(); fitPanel(); updatePaperSpec(); libLoad();
 log('ready — Q capture, W print, E menu, R exit');
 </script>
 <script src="inbox.js" defer></script>
