@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>thermal-cam — emulator</title>
+<meta name="description" content="Run the thermal-cam interface in a browser. No camera, no Pi, no printer.">
+<meta name="color-scheme" content="light dark">
+<style>
+  :root{
+    --bg:#fbfaf7;--panel:#fff;--ink:#16150f;--dim:#5f5c50;--rule:#e2ded2;
+    --accent:#b4451f;--soft:#fdf0e9;--code:#f3f0e7;
+    --ok:#2f6b3a;--warn:#8a6510;--bad:#a8321c;
+    --case:#2b2b28;--case-ink:#e8e6dc;--paper:#f7f5ef;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#14140f;--panel:#1c1c16;--ink:#eceadf;--dim:#9b978a;--rule:#2e2d24;
+      --accent:#ec7a4a;--soft:#2a1b12;--code:#23231b;
+      --ok:#79b98a;--warn:#d8ac4e;--bad:#ec7a6a;
+      --case:#0d0d0b;--case-ink:#e8e6dc;--paper:#e9e7e0;
+    }
+  }
+  :root[data-theme="dark"]{--bg:#14140f;--panel:#1c1c16;--ink:#eceadf;--dim:#9b978a;--rule:#2e2d24;--accent:#ec7a4a;--soft:#2a1b12;--code:#23231b;--ok:#79b98a;--warn:#d8ac4e;--bad:#ec7a6a;--case:#0d0d0b;--case-ink:#e8e6dc;--paper:#e9e7e0;}
+  :root[data-theme="light"]{--bg:#fbfaf7;--panel:#fff;--ink:#16150f;--dim:#5f5c50;--rule:#e2ded2;--accent:#b4451f;--soft:#fdf0e9;--code:#f3f0e7;--ok:#2f6b3a;--warn:#8a6510;--bad:#a8321c;--case:#2b2b28;--case-ink:#e8e6dc;--paper:#f7f5ef;}
+
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);overflow-x:hidden;
+       font:16px/1.6 ui-sans-serif,-apple-system,"Segoe UI",system-ui,sans-serif;
+       -webkit-font-smoothing:antialiased}
+  .wrap{max-width:70rem;margin:0 auto;padding:1.5rem 1rem 4rem}
+  @media(min-width:48rem){.wrap{padding:2.5rem 2rem 6rem}}
+  a{color:var(--accent)}
+  code{font-family:ui-monospace,"Cascadia Code",Consolas,monospace;font-size:.85em;
+       background:var(--code);padding:.1em .35em;border-radius:3px}
+  h1{font-size:clamp(1.6rem,6vw,2.2rem);margin:0 0 .2rem;letter-spacing:-.02em;font-weight:650}
+  h1 span{color:var(--accent)}
+  .sub{color:var(--dim);font-size:.9rem;margin:0 0 1.5rem}
+  .sub a{color:var(--dim)}
+
+  .stage{display:grid;gap:1.1rem;grid-template-columns:1fr;align-items:start}
+  @media(min-width:52rem){.stage{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+
+  /* ---- device ---- */
+  .device{background:var(--case);border-radius:16px;padding:1.1rem;
+          box-shadow:0 6px 24px rgba(0,0,0,.18)}
+  .screen{background:#000;border-radius:6px;padding:.5rem;display:flex;justify-content:center}
+  #panel{image-rendering:pixelated;width:100%;max-width:264px;height:auto;
+         background:#fff;display:block;border-radius:2px}
+  .statusline{display:flex;justify-content:space-between;gap:.6rem;flex-wrap:wrap;
+              color:var(--case-ink);font:.7rem/1.4 ui-monospace,Consolas,monospace;
+              padding:.6rem .1rem .1rem;opacity:.85}
+  .statusline b{color:var(--accent);font-weight:600}
+
+  .btns{display:grid;grid-template-columns:repeat(4,1fr);gap:.45rem;margin-top:.85rem}
+  .btn{background:#3d3d38;border:1px solid #4d4d46;color:var(--case-ink);
+       border-radius:8px;padding:.55rem .2rem;cursor:pointer;text-align:center;
+       font:600 .7rem/1.25 ui-sans-serif,system-ui,sans-serif;
+       -webkit-tap-highlight-color:transparent;transition:background .1s,transform .06s;
+       min-height:3.1rem;display:flex;flex-direction:column;justify-content:center;gap:.15rem}
+  .btn:hover{background:#4a4a44}
+  .btn:active,.btn.hit{background:var(--accent);transform:translateY(1px)}
+  .btn .gp{font:500 .58rem ui-monospace,Consolas,monospace;opacity:.6}
+  .btn .kb{font:500 .55rem ui-monospace,Consolas,monospace;opacity:.45}
+
+  /* ---- paper ---- */
+  .papercol{min-width:0}
+  .paperwrap{background:var(--paper);border:1px solid var(--rule);border-radius:4px;
+             padding:.6rem;max-height:32rem;overflow-y:auto;overflow-x:auto;
+             box-shadow:inset 0 -8px 12px -8px rgba(0,0,0,.15)}
+  #paper{image-rendering:pixelated;width:100%;max-width:384px;height:auto;display:block;margin:0 auto}
+  .paperempty{color:var(--dim);font-size:.85rem;text-align:center;padding:2.5rem 1rem}
+
+  .box{background:var(--panel);border:1px solid var(--rule);border-radius:10px;
+       padding:.9rem 1rem;margin-top:1rem}
+  .box h2{font-size:.95rem;margin:0 0 .6rem;font-weight:640}
+  .row{display:flex;justify-content:space-between;gap:.7rem;align-items:center;
+       padding:.4rem 0;font-size:.85rem;flex-wrap:wrap}
+  .row label{color:var(--dim);flex:1 1 9rem;min-width:0}
+  .row input[type=range]{flex:1 1 7rem;accent-color:var(--accent);min-width:0}
+  .row input[type=number]{width:5rem;background:var(--code);color:var(--ink);
+       border:1px solid var(--rule);border-radius:5px;padding:.3rem .4rem;font:inherit;font-size:.85rem}
+  .row input[type=checkbox]{accent-color:var(--accent);width:1.05rem;height:1.05rem;flex:none}
+  .row .v{font:.78rem ui-monospace,Consolas,monospace;color:var(--accent);min-width:3.4rem;text-align:right}
+  select{background:var(--code);color:var(--ink);border:1px solid var(--rule);
+         border-radius:5px;padding:.3rem .4rem;font:inherit;font-size:.85rem}
+
+  .drop{border:1.5px dashed var(--rule);border-radius:9px;padding:1rem;text-align:center;
+        color:var(--dim);font-size:.85rem;transition:border-color .15s,background .15s;cursor:pointer}
+  .drop.over{border-color:var(--accent);background:var(--soft)}
+  .mini{display:flex;gap:.4rem;flex-wrap:wrap;justify-content:center;margin-top:.6rem}
+  .mini button{font:600 .76rem inherit;padding:.42rem .75rem;border-radius:6px;
+       border:1px solid var(--rule);background:var(--panel);color:var(--ink);cursor:pointer}
+  .mini button:hover{border-color:var(--accent);color:var(--accent)}
+  .mini button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+  details{margin-top:1rem;background:var(--panel);border:1px solid var(--rule);border-radius:10px}
+  summary{cursor:pointer;padding:.75rem 1rem;font-weight:620;font-size:.92rem;list-style:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"▸ ";color:var(--accent)}
+  details[open] summary::before{content:"▾ "}
+  .dbody{padding:0 1rem 1rem}
+  .hint{color:var(--dim);font-size:.78rem;margin:.3rem 0 .7rem;line-height:1.5}
+
+  #log{font:.72rem/1.6 ui-monospace,Consolas,monospace;color:var(--dim);
+       max-height:9rem;overflow-y:auto;background:var(--code);border-radius:6px;padding:.6rem .7rem}
+  #log div{white-space:pre-wrap;word-break:break-word}
+  #log .e{color:var(--bad)} #log .w{color:var(--warn)} #log .g{color:var(--ok)}
+  video{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>thermal&#8209;cam <span>/ emulator</span></h1>
+<p class="sub">The interface, with no camera, no Pi and no printer.
+   Pixel targets are exact: 176×264 1&#8209;bit panel, 384&nbsp;px paper.
+   <a href="index.html">← project home</a></p>
+
+<div class="stage">
+
+  <!-- ============ DEVICE ============ -->
+  <div>
+    <div class="device">
+      <div class="screen"><canvas id="panel" width="176" height="264"></canvas></div>
+      <div class="statusline">
+        <span id="stState">idle</span>
+        <span id="stPaper">paper: ok</span>
+      </div>
+      <div class="btns">
+        <div class="btn" data-act="capture"><span>Capture</span><span class="gp">GPIO 5</span><span class="kb">Q</span></div>
+        <div class="btn" data-act="print"><span>Print</span><span class="gp">GPIO 13</span><span class="kb">W</span></div>
+        <div class="btn" data-act="menu"><span>Menu</span><span class="gp">GPIO 6</span><span class="kb">E</span></div>
+        <div class="btn" data-act="exit"><span>Exit</span><span class="gp">GPIO 19</span><span class="kb">R</span></div>
+      </div>
+    </div>
+
+    <div class="box">
+      <h2>Camera source</h2>
+      <div class="drop" id="drop">
+        Drop an image, paste one, or tap to pick a file
+        <div class="mini">
+          <button type="button" id="btnCam">Use webcam</button>
+          <button type="button" id="btnTest">Test pattern</button>
+        </div>
+      </div>
+      <input type="file" id="file" accept="image/*" hidden>
+      <video id="video" playsinline muted></video>
+    </div>
+  </div>
+
+  <!-- ============ PAPER ============ -->
+  <div class="papercol">
+    <div class="box" style="margin-top:0">
+      <h2>Paper <span style="font-weight:400;color:var(--dim);font-size:.8rem">— 58 mm, 384 px</span></h2>
+      <div class="paperwrap" id="paperwrap">
+        <div class="paperempty" id="paperempty">Nothing printed yet.</div>
+        <canvas id="paper" width="384" height="0" hidden></canvas>
+      </div>
+      <div class="mini" style="justify-content:flex-start;margin-top:.7rem">
+        <button type="button" id="btnTear">Tear off</button>
+      </div>
+    </div>
+
+    <details open>
+      <summary>Timing</summary>
+      <div class="dbody">
+        <p class="hint">Modelled on the real driver. Serial throughput comes from the baud rate;
+           burn time uses the same heat formula as <code>printer.py</code>.</p>
+        <div class="row"><label>Speed</label>
+          <select id="speed"><option value="1">1× (real time)</option><option value="4">4×</option><option value="16">16×</option><option value="0">instant</option></select></div>
+        <div class="row"><label>E-ink refresh</label>
+          <input type="range" id="einkMs" min="200" max="3000" step="100" value="1500"><span class="v" id="vEink">1500ms</span></div>
+        <div class="row"><label>Baud</label>
+          <select id="baud"><option>9600</option><option>19200</option><option>38400</option></select></div>
+        <div class="row"><label>Heat time</label>
+          <input type="range" id="heatTime" min="3" max="255" step="1" value="150"><span class="v" id="vHeat">150</span></div>
+        <div class="row"><label>Heating dots</label>
+          <input type="range" id="heatDots" min="0" max="47" step="1" value="0"><span class="v" id="vDots">0</span></div>
+        <div class="row"><label>Heat interval</label>
+          <input type="range" id="heatIv" min="0" max="255" step="1" value="0"><span class="v" id="vIv">0</span></div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Fault injection</summary>
+      <div class="dbody">
+        <p class="hint">Off by default. Each fault has its own chance of firing per print.</p>
+        <div class="row"><label><input type="checkbox" id="fPaperOn"> Paper out</label>
+          <input type="range" id="fPaper" min="0" max="100" step="5" value="20"><span class="v" id="vPaper">20%</span></div>
+        <div class="row"><label><input type="checkbox" id="fJamOn"> Jam mid-print</label>
+          <input type="range" id="fJam" min="0" max="100" step="5" value="20"><span class="v" id="vJam">20%</span></div>
+        <div class="row"><label><input type="checkbox" id="fBrownOn"> Brownout (battery sag)</label>
+          <input type="range" id="fBrown" min="0" max="100" step="5" value="20"><span class="v" id="vBrown">20%</span></div>
+        <p class="hint" style="margin-top:.6rem">Brownout models the LiPo sagging under the printer's
+           ~1.5–2 A burn peaks: rows come out faint, then the print dies. It looks like a software bug.
+           That's why it's here.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Log</summary>
+      <div class="dbody"><div id="log"></div></div>
+    </details>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* =========================================================================
+   thermal-cam emulator
+   Mirrors pi/main.py and pi/lib/ext/printer.py. Where a number comes from the
+   real code it is marked. Dithering is Floyd-Steinberg to match PIL's
+   convert('1', dither=FLOYDSTEINBERG).
+   ========================================================================= */
+
+const PANEL_W = 176, PANEL_H = 264;   // e-ink native, portrait (config.py + DISPLAY_ROTATION)
+const PRINT_W = 384;                  // printer dots per row
+const BYTES_PER_ROW = 48;             // 384/8            (printer.py)
+const ROWS_PER_CHUNK = 3;             // printer.py
+const CAMERA_ROTATION = 90;           // config.py
+
+const panel = document.getElementById('panel'), pctx = panel.getContext('2d');
+const paper = document.getElementById('paper'), rctx = paper.getContext('2d');
+const $ = id => document.getElementById(id);
+const log = (msg, cls) => {
+  const d = document.createElement('div');
+  if (cls) d.className = cls;
+  d.textContent = msg;
+  $('log').appendChild(d);
+  $('log').scrollTop = 1e9;
+};
+
+let state = 'idle';        // idle | capturing | refreshing | printing | menu | error
+let source = null;         // HTMLImageElement | HTMLVideoElement
+let lastCapture = null;    // {panelBits, printBits, printH} of the frozen shot
+let paperRows = 0;
+let capturing = false;
+let busy = false;
+let menuIndex = 0;
+let paperOut = false;
+
+// Menu is a proposal, not a decision -- Q10 confirmed "reprint last" only.
+// The rest are here so the layout can be judged on a real 176x264 panel.
+const MENU = [
+  { label: 'Reprint last photo', act: 'reprint', firm: true },
+  { label: 'Paper status',       act: 'paper',   firm: false },
+  { label: 'Shutdown',           act: 'shutdown',firm: false },
+  { label: 'Close menu',         act: 'close',   firm: true },
+];
+
+/* ---------- settings ---------- */
+const S = () => ({
+  speed:   parseFloat($('speed').value),
+  einkMs:  +$('einkMs').value,
+  baud:    +$('baud').value,
+  heatTime:+$('heatTime').value,
+  heatDots:+$('heatDots').value,
+  heatIv:  +$('heatIv').value,
+  faults: {
+    paper:  $('fPaperOn').checked ? +$('fPaper').value / 100 : 0,
+    jam:    $('fJamOn').checked   ? +$('fJam').value   / 100 : 0,
+    brown:  $('fBrownOn').checked ? +$('fBrown').value / 100 : 0,
+  }
+});
+[['einkMs','vEink','ms'],['heatTime','vHeat',''],['heatDots','vDots',''],['heatIv','vIv',''],
+ ['fPaper','vPaper','%'],['fJam','vJam','%'],['fBrown','vBrown','%']].forEach(([i,v,u]) => {
+  const f = () => $(v).textContent = $(i).value + u;
+  $(i).addEventListener('input', f); f();
+});
+
+// Always resolve on a macrotask. Resolving synchronously (Promise.resolve) lets
+// the capture loop spin in the microtask queue, which starves every timer and
+// freezes the page at "instant" speed.
+const wait = ms => {
+  const sp = S().speed;
+  return new Promise(r => setTimeout(r, sp === 0 ? 0 : ms / sp));
+};
+
+/* ---------- image pipeline (mirrors main.py) ---------- */
+
+// PIL rotate(90, expand=True) is counter-clockwise.
+function rotate90(src, sw, sh) {
+  const c = document.createElement('canvas');
+  c.width = sh; c.height = sw;
+  const x = c.getContext('2d');
+  x.translate(0, sw);
+  x.rotate(-Math.PI / 2);
+  x.drawImage(src, 0, 0, sw, sh);
+  return c;
+}
+
+function grayscale(imgData) {
+  const d = imgData.data, n = imgData.width * imgData.height, g = new Float32Array(n);
+  for (let i = 0; i < n; i++)                   // ITU-R 601, same weights as PIL's "L"
+    g[i] = 0.299 * d[i*4] + 0.587 * d[i*4+1] + 0.114 * d[i*4+2];
+  return g;
+}
+
+// Floyd-Steinberg, left-to-right, matching PIL's convert('1', dither=FLOYDSTEINBERG).
+// Returns Uint8Array: 1 = white (leave paper), 0 = black (burn).
+function dither(gray, w, h) {
+  const buf = Float32Array.from(gray), out = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x, old = buf[i], nw = old < 128 ? 0 : 255;
+      out[i] = nw ? 1 : 0;
+      const err = old - nw;
+      if (x + 1 < w)               buf[i + 1]     += err * 7 / 16;
+      if (y + 1 < h) {
+        if (x > 0)                 buf[i + w - 1] += err * 3 / 16;
+                                   buf[i + w]     += err * 5 / 16;
+        if (x + 1 < w)             buf[i + w + 1] += err * 1 / 16;
+      }
+    }
+  }
+  return out;
+}
+
+function sourceSize() {
+  if (!source) return null;
+  const w = source.videoWidth || source.naturalWidth || source.width;
+  const h = source.videoHeight || source.naturalHeight || source.height;
+  return (w && h) ? { w, h } : null;
+}
+
+// main.py prepare_for_display: rotate, thumbnail into the panel, centre on white, dither.
+function toPanelBits() {
+  const sz = sourceSize(); if (!sz) return null;
+  const rot = CAMERA_ROTATION ? rotate90(source, sz.w, sz.h) : source;
+  const rw = rot.width || sz.w, rh = rot.height || sz.h;
+  const scale = Math.min(PANEL_W / rw, PANEL_H / rh);     // thumbnail() preserves aspect
+  const dw = Math.max(1, Math.round(rw * scale)), dh = Math.max(1, Math.round(rh * scale));
+
+  const c = document.createElement('canvas');
+  c.width = PANEL_W; c.height = PANEL_H;
+  const x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, PANEL_W, PANEL_H);   // white background
+  x.drawImage(rot, (PANEL_W - dw) >> 1, (PANEL_H - dh) >> 1, dw, dh);
+  return dither(grayscale(x.getImageData(0, 0, PANEL_W, PANEL_H)), PANEL_W, PANEL_H);
+}
+
+// main.py prepare_for_printer: rotate, scale to 384 wide, dither. No padding.
+function toPrintBits() {
+  const sz = sourceSize(); if (!sz) return null;
+  const rot = CAMERA_ROTATION ? rotate90(source, sz.w, sz.h) : source;
+  const rw = rot.width || sz.w, rh = rot.height || sz.h;
+  const ph = Math.max(1, Math.round(rh * (PRINT_W / rw)));
+
+  const c = document.createElement('canvas');
+  c.width = PRINT_W; c.height = ph;
+  const x = c.getContext('2d');
+  x.drawImage(rot, 0, 0, PRINT_W, ph);
+  return { bits: dither(grayscale(x.getImageData(0, 0, PRINT_W, ph)), PRINT_W, ph), h: ph };
+}
+
+/* ---------- rendering ---------- */
+function drawPanel(bits) {
+  const img = pctx.createImageData(PANEL_W, PANEL_H);
+  for (let i = 0; i < PANEL_W * PANEL_H; i++) {
+    const v = bits[i] ? 255 : 0;
+    img.data[i*4] = img.data[i*4+1] = img.data[i*4+2] = v;
+    img.data[i*4+3] = 255;
+  }
+  pctx.putImageData(img, 0, 0);
+}
+
+function panelText(lines, opts) {
+  opts = opts || {};
+  pctx.fillStyle = '#fff'; pctx.fillRect(0, 0, PANEL_W, PANEL_H);
+  pctx.fillStyle = '#000';
+  pctx.font = '600 13px ui-monospace, Consolas, monospace';
+  pctx.textBaseline = 'top';
+  let y = opts.top != null ? opts.top : 14;
+  lines.forEach((ln, i) => {
+    if (opts.selected === i) {                       // inverse row, like a real 1-bit menu
+      pctx.fillStyle = '#000'; pctx.fillRect(6, y - 3, PANEL_W - 12, 19);
+      pctx.fillStyle = '#fff';
+    } else pctx.fillStyle = '#000';
+    pctx.fillText(ln, 11, y);
+    y += opts.gap || 22;
+  });
+  // hard threshold: the panel is 1-bit, no antialiasing survives
+  const d = pctx.getImageData(0, 0, PANEL_W, PANEL_H);
+  for (let i = 0; i < d.data.length; i += 4) {
+    const v = d.data[i] < 128 ? 0 : 255;
+    d.data[i] = d.data[i+1] = d.data[i+2] = v;
+  }
+  pctx.putImageData(d, 0, 0);
+}
+
+function setState(s, note) {
+  state = s;
+  $('stState').innerHTML = note ? s + ' — <b>' + note + '</b>' : s;
+}
+function setPaper() {
+  $('stPaper').textContent = 'paper: ' + (paperOut ? 'OUT' : 'ok');
+}
+
+/* ---------- paper ---------- */
+function paperAppend(bits, w, h, faint) {
+  $('paperempty').hidden = true; paper.hidden = false;
+  const keep = rctx.getImageData(0, 0, PRINT_W, paperRows || 1);
+  const had = paperRows;
+  paper.height = paperRows + h;
+  if (had) rctx.putImageData(keep, 0, 0);
+
+  const img = rctx.createImageData(w, h);
+  for (let i = 0; i < w * h; i++) {
+    let v = bits[i] ? 255 : 0;
+    if (faint && !bits[i]) v = 150;                  // brownout: burn too weak
+    img.data[i*4] = img.data[i*4+1] = img.data[i*4+2] = v;
+    img.data[i*4+3] = 255;
+  }
+  rctx.putImageData(img, 0, had);
+  paperRows += h;
+  $('paperwrap').scrollTop = 1e9;
+}
+
+function paperFeed(rows) {
+  const blank = new Uint8Array(PRINT_W * rows).fill(1);
+  paperAppend(blank, PRINT_W, rows, false);
+}
+
+function paperTextLine(text) {                        // the "Thermal Camera" footer from main.py
+  const c = document.createElement('canvas');
+  c.width = PRINT_W; c.height = 24;
+  const x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, PRINT_W, 24);
+  x.fillStyle = '#000'; x.font = '600 17px ui-monospace, Consolas, monospace';
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText(text, PRINT_W / 2, 12);
+  const d = x.getImageData(0, 0, PRINT_W, 24), bits = new Uint8Array(PRINT_W * 24);
+  for (let i = 0; i < bits.length; i++) bits[i] = d.data[i*4] < 128 ? 0 : 1;
+  paperAppend(bits, PRINT_W, 24, false);
+}
+
+/* ---------- the print itself (mirrors printer.py print_bitmap) ---------- */
+async function doPrint(bits, h) {
+  const s = S();
+  if (s.faults.paper && Math.random() < s.faults.paper) {
+    paperOut = true; setPaper();
+    setState('error', 'paper out'); panelText(['PAPER OUT', '', 'Load paper and', 'press Print.']);
+    log('FAULT: paper out before print', 'e');
+    return;
+  }
+
+  setState('printing');
+  const dotsPerCycle = (s.heatDots + 1) * 8;            // printer.py
+  const cycleUs = (s.heatTime + s.heatIv) * 10;         // printer.py
+  const bytesPerSec = s.baud / 10;                      // 8N1 -> 10 bits per byte
+  const jamAt = (s.faults.jam && Math.random() < s.faults.jam)
+    ? Math.floor(h * (0.25 + Math.random() * 0.5)) : -1;
+  const brown = s.faults.brown && Math.random() < s.faults.brown;
+  const brownAt = brown ? Math.floor(h * (0.2 + Math.random() * 0.4)) : -1;
+
+  let t0 = performance.now(), sent = 0;
+  for (let row = 0; row < h; row += ROWS_PER_CHUNK) {
+    const rows = Math.min(ROWS_PER_CHUNK, h - row);
+    const chunk = bits.subarray(row * PRINT_W, (row + rows) * PRINT_W);
+
+    let black = 0;
+    for (let i = 0; i < chunk.length; i++) if (!chunk[i]) black++;
+
+    // serial time for header + body, then the driver's burn-time pause
+    const bytes = 4 + BYTES_PER_ROW * rows;
+    const serialMs = (bytes / bytesPerSec) * 1000;
+    const burnMs = Math.max(50, (black / dotsPerCycle) * cycleUs / 1e6 * 1.25 * 1000);
+    await wait(serialMs + burnMs);
+
+    if (jamAt >= 0 && row >= jamAt) {
+      setState('error', 'jam');
+      panelText(['PAPER JAM', '', 'Printed ' + row + ' of', h + ' rows.', '', 'Clear and retry.']);
+      log('FAULT: jam at row ' + row + '/' + h, 'e');
+      return;
+    }
+    paperAppend(chunk, PRINT_W, rows, brownAt >= 0 && row >= brownAt);
+    sent += bytes;
+  }
+
+  if (brownAt >= 0) {
+    setState('error', 'brownout');
+    panelText(['BROWNOUT', '', 'Battery sagged', 'under burn load.', '', 'Print is faint.']);
+    log('FAULT: brownout from row ' + brownAt + ' — faint rows, looks like a software bug', 'e');
+    return;
+  }
+
+  paperFeed(16);                       // linefeed(2)
+  paperTextLine('Thermal Camera');     // main.py print_image
+  paperFeed(10);                       // linefeed(1)
+
+  const secs = ((performance.now() - t0) / 1000);
+  log('printed ' + h + ' rows, ' + sent + ' B at ' + s.baud + ' baud — ' +
+      secs.toFixed(1) + 's wall' + (S().speed !== 1 ? ' (sped up)' : ''), 'g');
+  setState('idle');
+}
+
+/* ---------- actions ---------- */
+async function refreshPanel(bits, note) {
+  setState('refreshing', note);
+  await wait(S().einkMs);
+  drawPanel(bits);
+  setState(capturing ? 'capturing' : 'idle');
+}
+
+async function actCapture() {
+  if (!source) { panelText(['NO CAMERA', '', 'Drop an image or', 'start the webcam.']); log('no source', 'w'); return; }
+  capturing = !capturing;
+  if (capturing) {
+    log('capture started — panel refreshes every ' + S().einkMs + 'ms');
+    setState('capturing');
+    loop();
+  } else {
+    log('capture stopped, frame saved');
+    const bits = toPanelBits();
+    lastCapture = { panel: bits, print: toPrintBits() };
+    await refreshPanel(bits, 'saved');
+  }
+}
+
+// The real _capture_loop spins with no sleep and drops frames the e-ink can't
+// keep up with. Reproduced here so the lag is visible rather than theoretical.
+async function loop() {
+  while (capturing && state !== 'printing') {
+    const bits = toPanelBits();
+    if (!bits) break;
+    lastCapture = { panel: bits, print: null };
+    // Floor the frame delay even at "instant" -- a zero-delay redraw loop pins a
+    // core for no visible benefit, which is the very thing this emulates.
+    await new Promise(r => setTimeout(r, Math.max(16, S().einkMs / (S().speed || 60))));
+    if (!capturing) break;
+    drawPanel(bits);
+  }
+}
+
+async function actPrint() {
+  if (busy) return;
+  if (paperOut) { log('paper out — reload first', 'w'); panelText(['PAPER OUT', '', 'Load paper and', 'press Print.']); return; }
+  if (!lastCapture) { log('nothing captured yet', 'w'); panelText(['NO PHOTO', '', 'Press Capture', 'first.']); return; }
+  busy = true;
+  capturing = false;
+  const p = lastCapture.print || toPrintBits();
+  if (!p) { busy = false; return; }
+  lastCapture.print = p;
+  await doPrint(p.bits, p.h);
+  busy = false;
+}
+
+function drawMenu() {
+  panelText(MENU.map((m, i) => (i === menuIndex ? '> ' : '  ') + m.label),
+            { selected: menuIndex, top: 20, gap: 26 });
+}
+
+async function actMenu() {
+  if (busy) return;
+  if (state !== 'menu') {
+    capturing = false;
+    setState('menu'); menuIndex = 0;
+    await wait(S().einkMs); drawMenu();
+    log('menu opened — Menu cycles, Print selects, Exit closes');
+  } else {
+    menuIndex = (menuIndex + 1) % MENU.length;
+    await wait(S().einkMs);           // every move costs a full refresh. That is the point.
+    drawMenu();
+  }
+}
+
+async function menuSelect() {
+  const item = MENU[menuIndex];
+  log('menu: ' + item.label);
+  if (item.act === 'close') { setState('idle'); await wait(S().einkMs); showIdle(); return; }
+  if (item.act === 'reprint') {
+    setState('idle');
+    if (lastCapture) { busy = true; const p = lastCapture.print || toPrintBits();
+      if (p) { lastCapture.print = p; await doPrint(p.bits, p.h); } busy = false; }
+    else log('nothing to reprint', 'w');
+    return;
+  }
+  if (item.act === 'paper') {
+    await wait(S().einkMs);
+    panelText(['PAPER', '', paperOut ? 'Status: OUT' : 'Status: OK', '',
+               'Printed rows:', String(paperRows)]);
+    return;
+  }
+  if (item.act === 'shutdown') {
+    await wait(S().einkMs);
+    panelText(['SHUTTING DOWN', '', 'Safe to unplug.']);
+    setState('off'); capturing = false;
+  }
+}
+
+function showIdle() {
+  if (lastCapture && lastCapture.panel) drawPanel(lastCapture.panel);
+  else panelText(['thermal-cam', '', 'Drop an image or', 'start the webcam,', 'then press', 'Capture.']);
+}
+
+async function actExit() {
+  if (state === 'menu') { setState('idle'); await wait(S().einkMs); showIdle(); return; }
+  capturing = false; busy = false;
+  setState('idle');
+  log('exit pressed — app would quit');
+  await wait(S().einkMs);
+  panelText(['STOPPED', '', 'Press Capture', 'to restart.']);
+}
+
+/* ---------- input ---------- */
+function hit(act) {
+  const el = document.querySelector('.btn[data-act="' + act + '"]');
+  if (el) { el.classList.add('hit'); setTimeout(() => el.classList.remove('hit'), 110); }
+  if (act === 'capture') actCapture();
+  else if (act === 'print') state === 'menu' ? menuSelect() : actPrint();
+  else if (act === 'menu') actMenu();
+  else if (act === 'exit') actExit();
+}
+document.querySelectorAll('.btn').forEach(b =>
+  b.addEventListener('click', () => hit(b.dataset.act)));
+addEventListener('keydown', e => {
+  const k = { q: 'capture', w: 'print', e: 'menu', r: 'exit' }[e.key.toLowerCase()];
+  if (k && !/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName)) { e.preventDefault(); hit(k); }
+});
+
+/* ---------- source loading ---------- */
+function useImage(src) {
+  const img = new Image();
+  img.onload = () => {
+    source = img; paperOut = false; setPaper();
+    log('source: ' + img.naturalWidth + '×' + img.naturalHeight);
+    const bits = toPanelBits();
+    if (bits) { lastCapture = { panel: bits, print: null }; drawPanel(bits); }
+  };
+  img.onerror = () => log('could not load that image', 'e');
+  img.src = src;
+}
+function useFiles(files) {
+  const f = [...files].find(x => x.type.startsWith('image/'));
+  if (!f) { log('not an image', 'w'); return; }
+  const r = new FileReader();
+  r.onload = () => useImage(r.result);
+  r.readAsDataURL(f);
+}
+
+const drop = $('drop');
+['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','dragend','drop'].forEach(ev => drop.addEventListener(ev, () => drop.classList.remove('over')));
+drop.addEventListener('drop', e => { e.preventDefault(); useFiles(e.dataTransfer.files); });
+drop.addEventListener('click', e => { if (e.target.tagName !== 'BUTTON') $('file').click(); });
+$('file').addEventListener('change', e => useFiles(e.target.files));
+addEventListener('paste', e => {
+  const f = [...(e.clipboardData?.items || [])].filter(i => i.kind === 'file').map(i => i.getAsFile()).filter(Boolean);
+  if (f.length) useFiles(f);
+});
+
+$('btnCam').addEventListener('click', async () => {
+  const v = $('video');
+  if (source === v) {                                   // toggle off
+    (v.srcObject?.getTracks() || []).forEach(t => t.stop());
+    v.srcObject = null; source = null; $('btnCam').classList.remove('on');
+    log('webcam stopped'); return;
+  }
+  try {
+    v.srcObject = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    await v.play();
+    source = v; paperOut = false; setPaper();
+    $('btnCam').classList.add('on');
+    log('webcam started — ' + v.videoWidth + '×' + v.videoHeight, 'g');
+    const b = toPanelBits(); if (b) drawPanel(b);
+  } catch (err) {
+    log('webcam refused: ' + err.message + (location.protocol === 'file:' ? ' (needs http/https)' : ''), 'e');
+  }
+});
+
+$('btnTest').addEventListener('click', () => {
+  const c = document.createElement('canvas'); c.width = 640; c.height = 480;
+  const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 640, 0);
+  g.addColorStop(0, '#000'); g.addColorStop(1, '#fff');
+  x.fillStyle = g; x.fillRect(0, 0, 640, 240);
+  for (let i = 0; i < 8; i++) {                          // hard edges + flat tones
+    x.fillStyle = i % 2 ? '#fff' : '#000';
+    x.fillRect(i * 80, 240, 80, 120);
+  }
+  x.fillStyle = '#808080'; x.fillRect(0, 360, 640, 120);
+  x.fillStyle = '#fff'; x.font = 'bold 46px sans-serif'; x.textAlign = 'center';
+  x.fillText('THERMAL', 320, 415);
+  useImage(c.toDataURL());
+});
+
+$('btnTear').addEventListener('click', () => {
+  paperRows = 0; paper.height = 0; paper.hidden = true;
+  $('paperempty').hidden = false; paperOut = false; setPaper();
+  log('paper torn off');
+});
+
+/* ---------- boot ---------- */
+setPaper(); showIdle();
+log('ready — Q capture, W print, E menu, R exit');
+</script>
+<script src="inbox.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>thermal-cam — status</title>
+<meta name="color-scheme" content="light dark">
+<style>
+  :root{--bg:#fbfaf7;--panel:#fff;--ink:#16150f;--dim:#5f5c50;--rule:#e2ded2;
+        --accent:#b4451f;--soft:#fdf0e9;--code:#f3f0e7;--ok:#2f6b3a;--ok-soft:#eaf4ec;--warn:#8a6510;--warn-soft:#fbf3e0;}
+  @media(prefers-color-scheme:dark){:root{--bg:#14140f;--panel:#1c1c16;--ink:#eceadf;--dim:#9b978a;--rule:#2e2d24;
+        --accent:#ec7a4a;--soft:#2a1b12;--code:#23231b;--ok:#79b98a;--ok-soft:#16241a;--warn:#d8ac4e;--warn-soft:#241d0f;}}
+  :root[data-theme="dark"]{--bg:#14140f;--panel:#1c1c16;--ink:#eceadf;--dim:#9b978a;--rule:#2e2d24;--accent:#ec7a4a;--soft:#2a1b12;--code:#23231b;--ok:#79b98a;--ok-soft:#16241a;--warn:#d8ac4e;--warn-soft:#241d0f;}
+  :root[data-theme="light"]{--bg:#fbfaf7;--panel:#fff;--ink:#16150f;--dim:#5f5c50;--rule:#e2ded2;--accent:#b4451f;--soft:#fdf0e9;--code:#f3f0e7;--ok:#2f6b3a;--ok-soft:#eaf4ec;--warn:#8a6510;--warn-soft:#fbf3e0;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);overflow-x:hidden;
+       font:16px/1.6 ui-sans-serif,-apple-system,"Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:46rem;margin:0 auto;padding:2rem 1.1rem 7rem}
+  @media(min-width:40rem){.wrap{padding:3rem 2rem 8rem}}
+  a{color:var(--accent)}
+  code{font-family:ui-monospace,Consolas,monospace;font-size:.85em;background:var(--code);padding:.1em .35em;border-radius:3px}
+  h1{font-size:clamp(1.6rem,6vw,2.2rem);margin:0 0 .2rem;font-weight:650;letter-spacing:-.02em}
+  h1 span{color:var(--accent)}
+  .sub{color:var(--dim);font-size:.88rem;margin:0 0 1.6rem}
+  .sub a{color:var(--dim)}
+
+  .live{display:inline-flex;align-items:center;gap:.4rem;font:600 .68rem/1 ui-monospace,Consolas,monospace;
+        letter-spacing:.08em;text-transform:uppercase;color:var(--ok);background:var(--ok-soft);
+        border:1px solid var(--rule);padding:.35rem .55rem;border-radius:99px}
+  .live::before{content:"";width:.42rem;height:.42rem;border-radius:50%;background:currentColor;
+        animation:pulse 1.8s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+
+  h2{font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);
+     margin:2.2rem 0 .7rem;font-weight:700;display:flex;align-items:center;gap:.6rem}
+  h2::after{content:"";flex:1;height:1px;background:var(--rule)}
+
+  .card{background:var(--panel);border:1px solid var(--rule);border-radius:11px;padding:1rem 1.1rem;margin:.6rem 0}
+  .card.hero{border-left:3px solid var(--accent);background:var(--soft)}
+  .card .t{font-weight:640;font-size:1rem;margin-bottom:.15rem}
+  .card .d{color:var(--dim);font-size:.88rem}
+  .card.hero .t{font-size:1.12rem}
+
+  ol{list-style:none;counter-reset:n;padding:0;margin:0}
+  ol li{counter-increment:n;position:relative;padding:.75rem 0 .75rem 2.4rem;border-bottom:1px solid var(--rule)}
+  ol li:last-child{border-bottom:none}
+  ol li::before{content:counter(n);position:absolute;left:0;top:.8rem;width:1.6rem;height:1.6rem;
+    border-radius:50%;border:1px solid var(--rule);display:grid;place-items:center;
+    font:600 .7rem ui-monospace,Consolas,monospace;color:var(--accent)}
+  ol .t{font-weight:600;font-size:.95rem}
+  ol .d{color:var(--dim);font-size:.85rem}
+
+  ul.done{list-style:none;padding:0;margin:0}
+  ul.done li{padding:.55rem 0 .55rem 1.6rem;position:relative;border-bottom:1px solid var(--rule);font-size:.92rem}
+  ul.done li:last-child{border-bottom:none}
+  ul.done li::before{content:"✓";position:absolute;left:0;top:.55rem;color:var(--ok);font-weight:700}
+  ul.done .d{color:var(--dim);font-size:.84rem}
+
+  /* must out-specify ul.done li::before, or blocked items read as done */
+  ul.done.blocked li::before{content:"⏸";color:var(--warn)}
+  footer{margin-top:2.5rem;color:var(--dim);font-size:.78rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>thermal&#8209;cam <span>/ status</span></h1>
+<p class="sub"><span class="live" id="live">live</span> &nbsp;
+   <span id="stamp">loading…</span> &nbsp;·&nbsp;
+   <a href="index.html">project home</a> ·
+   <a href="emulator.html">emulator</a></p>
+
+<div id="body"></div>
+
+<footer>
+  <p>Polls <code>status.json</code> every 5&nbsp;s. Served locally it updates as work happens;
+     on GitHub Pages it shows the last committed snapshot.</p>
+  <p>Got an idea while reading this? Hit the <b>+</b> button, or press <b>i</b>.</p>
+</footer>
+
+</div>
+
+<script>
+"use strict";
+var body = document.getElementById("body"), stamp = document.getElementById("stamp");
+var last = null;
+
+function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+
+function ago(iso){
+  var d = (Date.now() - new Date(iso).getTime())/1000;
+  if (isNaN(d)) return iso;
+  if (d < 60) return "just now";
+  if (d < 3600) return Math.floor(d/60) + " min ago";
+  if (d < 86400) return Math.floor(d/3600) + " h ago";
+  return Math.floor(d/86400) + " d ago";
+}
+
+function render(s){
+  var h = "";
+  h += '<h2>Working on</h2><div class="card hero"><div class="t">' + esc(s.now.task) +
+       '</div><div class="d">' + esc(s.now.detail) + "</div></div>";
+
+  if (s.next && s.next.length){
+    h += "<h2>Next</h2><ol>";
+    s.next.forEach(function(n){
+      h += '<li><div class="t">' + esc(n.task) + '</div><div class="d">' + esc(n.why) + "</div></li>";
+    });
+    h += "</ol>";
+  }
+  if (s.blocked && s.blocked.length){
+    h += "<h2>Waiting on you</h2><ul class='done blocked'>";
+    s.blocked.forEach(function(b){
+      h += "<li><b>" + esc(b.task) + '</b><div class="d">' + esc(b.why) + "</div></li>";
+    });
+    h += "</ul>";
+  }
+  if (s.done && s.done.length){
+    h += "<h2>Done</h2><ul class='done'>";
+    s.done.forEach(function(d){
+      h += "<li><b>" + esc(d.task) + '</b><div class="d">' + esc(d.note) + "</div></li>";
+    });
+    h += "</ul>";
+  }
+  body.innerHTML = h;
+  stamp.textContent = "updated " + ago(s.updated);
+}
+
+function poll(){
+  fetch("status.json?t=" + Date.now())
+    .then(function(r){ return r.json(); })
+    .then(function(s){
+      var sig = JSON.stringify(s);
+      if (sig !== last){ last = sig; render(s); }
+      else stamp.textContent = "updated " + ago(s.updated);
+      document.getElementById("live").style.display = "";
+    })
+    .catch(function(){
+      document.getElementById("live").style.display = "none";
+      stamp.textContent = "offline — start tools/serve.py for live updates";
+    });
+}
+poll();
+setInterval(poll, 5000);
+</script>
+<script src="inbox.js" defer></script>
+</body>
+</html>

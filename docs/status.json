@@ -1,0 +1,28 @@
+{
+  "updated": "2026-07-28T18:48:00Z",
+  "now": {
+    "task": "Idle — waiting on you",
+    "detail": "Inbox and status board are built, wired into every page, and tested including the offline queue. Next up is the dither parity test unless you redirect me.",
+    "state": "idle"
+  },
+  "next": [
+    { "task": "Dither parity test", "why": "Keeps the JS emulator honest against PIL without manual syncing. Q8 asked for exactly this." },
+    { "task": "Decide what to do about print duration", "why": "The emulator measured ~56s to print one photo. 26.3s of that is serial time at 9600 baud." },
+    { "task": "Turn on GitHub Pages", "why": "Settings -> Pages -> master /docs. Needs a commit and push first." },
+    { "task": "Untrack ESP32 build output", "why": "1338 of 1452 tracked files. Waiting on your go-ahead: it lands as a huge deletion." }
+  ],
+  "blocked": [
+    { "task": "Menu design beyond 'reprint last'", "why": "Q10: you wanted to see a device layout first. The emulator now shows a 4-item menu on a real 176x264 panel." },
+    { "task": "Serial port approach for Zero 2W", "why": "Q7: BT and WiFi must stay usable, so disable-bt is out. Needs a bench test, not a decision." }
+  ],
+  "done": [
+    { "task": "Inbox widget", "note": "Floating + button on every page. Queues to localStorage when the server is down, drains when it returns." },
+    { "task": "This status board", "note": "Polls status.json every 5s." },
+    { "task": "Browser emulator", "note": "Static, phone-friendly, mirrors main.py and printer.py. Revealed the ~56s print time." },
+    { "task": "Landing page", "note": "docs/index.html, works on a phone with nothing installed." },
+    { "task": "First tests in the repo", "note": "pi/test_printer.py, 6 checks, mutation-verified." },
+    { "task": "Printer driver error handling", "note": "Width and pixel-type failures now name themselves." },
+    { "task": "Product direction recorded", "note": "docs/PRODUCT.md, all 13 grill answers." },
+    { "task": "Dead file cleanup", "note": "Shadowed e-ink fork and an unused vendor demo removed." }
+  ]
+}
