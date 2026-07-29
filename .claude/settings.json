@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "permissions": {
+    "deny": [
+      "Read(./arduino/esp32-trial/build/**)",
+      "Read(./esp-idf/build/**)",
+      "Read(./**/*.a)",
+      "Read(./**/*.elf)",
+      "Read(./**/*.map)",
+      "Read(./**/*.bin)",
+      "Read(./**/*.gif)",
+      "Read(./**/compile_commands.json)",
+      "Read(./**/build.ninja)"
+    ]
+  }
+}
