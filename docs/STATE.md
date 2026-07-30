@@ -21,8 +21,9 @@ after tests pass.
 - Camera capture → e-ink preview → save → thermal print on Raspberry Pi 5.
 - ESC/POS bitmap printing at 9600 baud with chunk-size and heat pacing guards.
 - Six hardware-free printer driver regression checks in `pi/test_printer.py`.
-- Hosted emulator with live view, image upload, webcam input, rotation, crop,
-  d-pad controls, print animation, capture library and fault injection.
+- Hosted emulator with a 264×176 landscape view, automatically aligned webcam
+  input, tap-to-freeze and hold-to-print shutter gesture, d-pad controls, print
+  animation, capture library and fault injection.
 - Browser Floyd–Steinberg dithering is isolated in `docs/dither.js`; parity tests
   compare fixed grayscale patterns against Pillow's device pipeline.
 - Responsive project dashboard links the emulator, key files, current work,
@@ -31,7 +32,7 @@ after tests pass.
 
 ## Current development focus
 
-1. Collect feedback on the hosted dashboard and emulator.
+1. Collect phone feedback on the landscape camera view and tap/hold shutter flow.
 2. Decide how to reduce the roughly 56-second print duration. About 26.3 seconds
    is serial transfer alone at 9600 baud; speed changes require paper tests.
 3. Exercise the proposed d-pad control model in emulator focus mode.

@@ -1,14 +1,14 @@
 {
-  "updated": "2026-07-30T14:16:55Z",
+  "updated": "2026-07-30T14:46:40Z",
   "now": {
-    "task": "Project dashboard published for feedback",
-    "detail": "The hosted landing page now acts as a development dashboard with direct links to the emulator, device code, printer driver, product decisions, roadmap and live task snapshot.",
+    "task": "Landscape emulator capture flow ready for feedback",
+    "detail": "The hosted testing interface now uses a 264×176 landscape viewport, starts webcam feeds without rotation, freezes a still on shutter tap, and prints that still on a deliberate shutter hold.",
     "state": "active"
   },
   "next": [
     {
-      "task": "Review the dashboard and emulator",
-      "why": "Use the hosted pages on desktop or phone and send visual or interaction feedback through chat."
+      "task": "Review the landscape camera interface on a phone",
+      "why": "Check the rear-camera feed, crop and physical-feeling tap/hold shutter interaction in portrait and landscape browser orientation."
     },
     {
       "task": "Decide what to do about print duration",
@@ -16,7 +16,7 @@
     },
     {
       "task": "Exercise the d-pad in focus mode",
-      "why": "The browser emulator now exposes the proposed control model at the real 176×264 panel shape and refresh timing."
+      "why": "The browser emulator exposes the proposed control model around the 264×176 landscape panel and real e-ink refresh timing."
     },
     {
       "task": "Build the plywood development rig",
@@ -39,6 +39,14 @@
   ],
   "done": [
     {
+      "task": "Landscape emulator and capture gesture",
+      "note": "Landscape panel, unrotated phone/webcam feed, instant still-frame capture on tap, and hold-to-print with accidental-tap suppression."
+    },
+    {
+      "task": "Camera-style emulator body and startup graphic",
+      "note": "Rear-camera silhouette, tactile controls, and a one-bit typography-and-camera welcome screen shown until a source starts."
+    },
+    {
       "task": "Project dashboard",
       "note": "Responsive hosted landing page with important files, current tasks, system specs and roadmap."
     },
@@ -52,7 +60,7 @@
     },
     {
       "task": "Emulator live-view camera model",
-      "note": "A source starts live view; shutter freezes a frame and a second press resumes."
+      "note": "A source starts live view automatically; the shutter freezes a frame and another tap resumes."
     },
     {
       "task": "Emulator framing controls",
