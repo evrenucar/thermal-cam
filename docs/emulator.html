@@ -42,16 +42,33 @@
   .stage{display:grid;gap:1.1rem;grid-template-columns:1fr;align-items:start}
   @media(min-width:52rem){.stage{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 
-  /* ---- device ---- */
-  .device{background:var(--case);border-radius:16px;padding:1.1rem;
-          box-shadow:0 6px 24px rgba(0,0,0,.18)}
-  .screen{background:#000;border-radius:6px;padding:.5rem;display:flex;justify-content:center}
-  #panel{image-rendering:pixelated;width:100%;max-width:264px;height:auto;
+  /* ---- device: rear/side camera silhouette ---- */
+  .device{background:linear-gradient(145deg,#363630,#1d1d1a);border:1px solid #45443d;
+          border-radius:22px 14px 22px 22px;padding:0 1.1rem 1.1rem;
+          box-shadow:0 18px 44px rgba(0,0,0,.32),inset 0 1px rgba(255,255,255,.06);position:relative}
+  .camera-top{height:2.15rem;display:flex;align-items:center;justify-content:space-between;
+              color:var(--case-ink);font:700 .58rem/1 ui-monospace,Consolas,monospace;
+              letter-spacing:.14em;padding:0 .55rem;opacity:.72}
+  .hotshoe:before{content:"";display:inline-block;width:1.8rem;height:.34rem;background:#0d0d0c;
+                  border:1px solid #4b4a43;margin-right:.7rem;vertical-align:middle}
+  .top-shutter{width:1.65rem;height:.72rem;border-radius:99px;background:var(--accent);color:transparent;
+               box-shadow:0 -3px 0 #7e2f12,0 2px 8px rgba(0,0,0,.45)}
+  .camera-back{display:grid;grid-template-columns:minmax(0,1fr) 9rem;gap:1rem;align-items:center}
+  .viewfinder{min-width:0}
+  .camera-grip{align-self:stretch;border-left:1px solid #4b4a43;padding-left:1rem;
+               display:flex;flex-direction:column;justify-content:center;min-width:0}
+  .screen{background:#050505;border:1px solid #535149;border-radius:8px;padding:.55rem;
+          display:flex;justify-content:center;box-shadow:inset 0 0 0 3px #151513}
+  #panel{image-rendering:pixelated;width:100%;max-width:528px;height:auto;aspect-ratio:3/2;
          background:#fff;display:block;border-radius:2px}
   .statusline{display:flex;justify-content:space-between;gap:.6rem;flex-wrap:wrap;
-              color:var(--case-ink);font:.7rem/1.4 ui-monospace,Consolas,monospace;
-              padding:.6rem .1rem .1rem;opacity:.85}
+              color:var(--case-ink);font:.67rem/1.4 ui-monospace,Consolas,monospace;
+              padding:.45rem .1rem .1rem;opacity:.85}
   .statusline b{color:var(--accent);font-weight:600}
+  @media(max-width:32rem){
+    .camera-back{grid-template-columns:1fr}
+    .camera-grip{border-left:0;border-top:1px solid #4b4a43;padding:1rem 0 0}
+  }
 
   .btns{display:grid;grid-template-columns:repeat(4,1fr);gap:.45rem;margin-top:.85rem}
   .btn{background:#3d3d38;border:1px solid #4d4d46;color:var(--case-ink);
@@ -65,8 +82,8 @@
   .btn .kb{font:500 .55rem ui-monospace,Consolas,monospace;opacity:.45}
 
   /* ---- d-pad: the proposed final interface ---- */
-  .pad{display:grid;grid-template-columns:repeat(3,3.1rem);grid-template-rows:repeat(3,3.1rem);
-       gap:.35rem;justify-content:center;margin-top:.9rem}
+  .pad{display:grid;grid-template-columns:repeat(3,2.35rem);grid-template-rows:repeat(3,2.35rem);
+       gap:.28rem;justify-content:center;margin-top:.2rem}
   .pad .k{background:#3d3d38;border:1px solid #4d4d46;color:var(--case-ink);border-radius:9px;
           display:grid;place-items:center;cursor:pointer;font-size:1.1rem;user-select:none;
           -webkit-tap-highlight-color:transparent;transition:background .09s,transform .06s}
@@ -75,10 +92,10 @@
   .pad .k.ctr{font:700 .62rem ui-sans-serif,system-ui,sans-serif;border-radius:50%}
   .pad .sp{visibility:hidden}
   .padrow{display:flex;gap:.5rem;justify-content:center;align-items:center;margin-top:.7rem;flex-wrap:wrap}
-  .shutter{background:var(--accent);border:none;color:#fff;border-radius:99px;
-           padding:.7rem 1.5rem;font:700 .85rem ui-sans-serif,system-ui,sans-serif;cursor:pointer;
+  .shutter{background:var(--accent);border:none;color:#fff;border-radius:12px;
+           padding:.7rem .55rem;font:700 .74rem ui-sans-serif,system-ui,sans-serif;cursor:pointer;
            -webkit-tap-highlight-color:transparent;transition:transform .06s,filter .1s;
-           display:flex;align-items:center;gap:.5rem}
+           display:flex;flex-direction:column;align-items:center;gap:.2rem;width:100%}
   .shutter:hover{filter:brightness(1.1)}
   .shutter.hit,.shutter:active{transform:scale(.95)}
   .shutter .kb{font:500 .6rem ui-monospace,Consolas,monospace;opacity:.7}
@@ -89,13 +106,13 @@
 
   /* ---- focus mode: must fit the viewport, never scroll ---- */
   body.focus{overflow:hidden;height:100dvh}
-  body.focus .wrap{max-width:30rem;height:100dvh;padding:.6rem .7rem;
+  body.focus .wrap{max-width:52rem;height:100dvh;padding:.6rem .7rem;
                    display:flex;align-items:center;overflow:hidden}
   body.focus .papercol,body.focus .box,body.focus details,body.focus h1,body.focus .sub{display:none}
   body.focus .stage{grid-template-columns:1fr;width:100%;gap:0}
-  body.focus .device{margin:0;padding:.7rem}
+  body.focus .device{margin:0;padding:0 .7rem .7rem}
   body.focus #panel{max-width:none}
-  body.focus .pad{grid-template-columns:repeat(3,2.7rem);grid-template-rows:repeat(3,2.7rem);margin-top:.6rem}
+  body.focus .pad{margin-top:.2rem}
   body.focus .padrow{margin-top:.5rem}
   body.focus .shutter{padding:.55rem 1.2rem}
   body.focus .keyecho{padding-top:.35rem;min-height:1.1rem}
@@ -107,7 +124,7 @@
              font:600 .78rem ui-sans-serif,system-ui,sans-serif;align-items:center;gap:.4rem}
   body.focus .focuscam{display:block}
   .focuscam{display:none;margin-top:.9rem;border-radius:10px;overflow:hidden;background:#000}
-  .focuscam video{display:block;width:100%;height:auto;transform:scaleX(-1)}
+  .focuscam video{display:block;width:100%;height:auto;aspect-ratio:3/2;object-fit:cover;transform:none}
   .focuscam .nocam{color:var(--dim);font-size:.82rem;text-align:center;padding:1.4rem 1rem}
 
   /* ---- paper ---- */
@@ -193,7 +210,7 @@
 
 <h1>thermal&#8209;cam <span>/ emulator</span></h1>
 <p class="sub">The interface, with no camera, no Pi and no printer.
-   Pixel targets are exact: 176×264 1&#8209;bit panel, 384&nbsp;px paper.
+   Pixel targets are exact: 264×176 landscape 1&#8209;bit panel, 384&nbsp;px paper.
    <a href="index.html">← project home</a> ·
    <a href="#" id="focusLink">device focus mode</a></p>
 
@@ -202,15 +219,20 @@
   <!-- ============ DEVICE ============ -->
   <div>
     <div class="device">
-      <div class="screen"><canvas id="panel" width="176" height="264"></canvas></div>
+      <div class="camera-top"><span class="hotshoe">THERMAL CAM</span><span class="top-shutter">●</span></div>
+      <div class="camera-back">
+      <div class="viewfinder">
+      <div class="screen"><canvas id="panel" width="264" height="176"></canvas></div>
       <div class="spec">
         <span>Waveshare 2.7&quot; e&#8209;ink</span>
-        <span><b>176&#215;264</b> · 1&#8209;bit · <span id="specFraming">cropped to fill</span></span>
+        <span><b>264&#215;176</b> · 1&#8209;bit · <span id="specFraming">cropped to fill</span></span>
       </div>
       <div class="statusline">
         <span id="stState">idle</span>
         <span id="stPaper">paper: ok</span>
       </div>
+      </div>
+      <div class="camera-grip">
       <!-- proposed final interface: 4-way + centre, plus a dedicated shutter -->
       <div class="pad">
         <div class="sp"></div>
@@ -225,10 +247,12 @@
       </div>
       <div class="padrow">
         <button class="shutter" data-pad="shutter" type="button">
-          <span>&#9673; Take photo</span><span class="kb">SPACE</span>
+          <span>&#9673; Tap to capture</span><span class="kb">Hold to print · SPACE</span>
         </button>
       </div>
-      <div class="keyecho" id="keyecho">press arrows, enter or space</div>
+      <div class="keyecho" id="keyecho">Tap to capture · Hold to print</div>
+      </div>
+      </div>
 
       <div class="focuscam" id="focuscam">
         <video id="video" playsinline muted></video>
@@ -264,10 +288,10 @@
            user-gesture plumbing, and works on mobile where input.click() does not -->
       <input type="file" id="file" accept="image/*" class="vh">
 
-      <div class="row" style="margin-top:.6rem"><label>Rotation</label>
+      <div class="row" style="margin-top:.6rem"><label>Camera alignment</label>
         <select id="rotate">
-          <option value="0">0° — webcam as-is</option>
-          <option value="90" selected>90° — as config.py</option>
+          <option value="0" selected>0° — aligned with viewport</option>
+          <option value="90">90° clockwise</option>
           <option value="180">180°</option>
           <option value="270">270°</option>
         </select></div>
@@ -283,7 +307,7 @@
     <div class="box">
       <h2>Library <span style="font-weight:400;color:var(--dim);font-size:.78rem">— tap to reload &amp; reprint</span></h2>
       <div class="lib" id="lib"></div>
-      <div class="libempty" id="libempty">No captures yet. Press Capture twice to save one.</div>
+      <div class="libempty" id="libempty">No captures yet. Tap the shutter to freeze and save one.</div>
       <div class="mini" style="justify-content:flex-start">
         <button type="button" id="btnLibClear">Clear library</button>
       </div>
@@ -295,8 +319,8 @@
         <p class="hint">Same photo, two very different targets — and the difference is
            faithful to <code>main.py</code>, which builds them on separate paths.</p>
         <div class="row"><label>Panel</label><span style="flex:1 1 12rem;font-size:.82rem">
-          <code>prepare_for_display</code> — scaled to <b>fit inside</b> 176&#215;264 and centred on
-          white, so a frame that isn't 2:3 gets white bars. About <b>46k pixels</b>.</span></div>
+          <code>prepare_for_display</code> — shown in the requested landscape 264&#215;176 viewport and
+          centred or cropped according to the framing control. About <b>46k pixels</b>.</span></div>
         <div class="row"><label>Paper</label><span style="flex:1 1 12rem;font-size:.82rem">
           <code>prepare_for_printer</code> — scaled so the <b>width</b> is 384, height follows.
           No letterboxing, no crop. Often <b>4&#215; more pixels</b> than the panel.</span></div>
@@ -370,6 +394,7 @@
 </div>
 
 <script src="dither.js"></script>
+<script src="shutter.js"></script>
 <script>
 "use strict";
 /* =========================================================================
@@ -379,7 +404,7 @@
    convert('1', dither=FLOYDSTEINBERG).
    ========================================================================= */
 
-const PANEL_W = 176, PANEL_H = 264;   // e-ink native, portrait (config.py + DISPLAY_ROTATION)
+const PANEL_W = 264, PANEL_H = 176;   // requested landscape orientation for the testing interface
 const PRINT_W = 384;                  // printer dots per row
 const BYTES_PER_ROW = 48;             // 384/8            (printer.py)
 const ROWS_PER_CHUNK = 3;             // printer.py
@@ -429,7 +454,7 @@ const clickPress = () => { beep(1500, 0.025, 0.07); if (navigator.vibrate) navig
 const clickLand  = () => { beep(700, 0.055, 0.05);  if (navigator.vibrate) navigator.vibrate([0, 20, 12]); };
 
 // Menu is a proposal, not a decision -- Q10 confirmed "reprint last" only.
-// The rest are here so the layout can be judged on a real 176x264 panel.
+// The rest are here so the layout can be judged on the 264x176 landscape panel.
 const MENU = [
   { label: 'Print this photo',   act: 'reprint', firm: true },
   { label: 'Paper status',       act: 'paper',   firm: false },
@@ -511,7 +536,7 @@ function sourceSize() {
 
 // main.py prepare_for_display: rotate, scale into the panel, dither.
 // "fit" is what main.py does today (letterbox on white). "fill" crops to the
-// panel instead, which is what you want when the source aspect isn't 2:3.
+// panel instead, which is what you want when the source aspect isn't 3:2.
 function toPanelBits() {
   const sz = sourceSize(); if (!sz) return null;
   const rot = rotateBy(source, sz.w, sz.h, ROT());
@@ -539,7 +564,7 @@ function toPrintBits() {
 
   let ph, sw, sh, sx, sy;
   if (FILL()) {
-    ph = Math.round(PRINT_W * (PANEL_H / PANEL_W));      // same 2:3 shape as the panel
+    ph = Math.round(PRINT_W * (PANEL_H / PANEL_W));      // same 3:2 landscape shape as the panel
     const s = Math.max(PRINT_W / rw, ph / rh);
     sw = PRINT_W / s; sh = ph / s;
     sx = (rw - sw) / 2; sy = (rh - sh) / 2;
@@ -589,6 +614,30 @@ function panelText(lines, opts) {
     d.data[i] = d.data[i+1] = d.data[i+2] = v;
   }
   pctx.putImageData(d, 0, 0);
+}
+
+function drawWelcomeScreen() {
+  pctx.fillStyle = '#000'; pctx.fillRect(0, 0, PANEL_W, PANEL_H);
+  pctx.fillStyle = '#fff';
+  pctx.font = '700 10px ui-monospace, Consolas, monospace';
+  pctx.textBaseline = 'top';
+  pctx.fillText('THERMAL—CAM / 01', 14, 12);
+  pctx.fillRect(14, 29, PANEL_W - 28, 1);
+
+  // A deliberately simple one-bit camera silhouette: body, top plate, lens.
+  pctx.strokeStyle = '#fff'; pctx.lineWidth = 3;
+  pctx.strokeRect(78, 52, 108, 61);
+  pctx.strokeRect(96, 43, 38, 10);
+  pctx.beginPath(); pctx.arc(132, 82, 22, 0, Math.PI * 2); pctx.stroke();
+  pctx.beginPath(); pctx.arc(132, 82, 9, 0, Math.PI * 2); pctx.fill();
+  pctx.fillRect(168, 60, 7, 7);
+
+  pctx.font = '700 16px ui-monospace, Consolas, monospace';
+  pctx.textAlign = 'center';
+  pctx.fillText('START CAMERA', PANEL_W / 2, 127);
+  pctx.font = '600 8px ui-monospace, Consolas, monospace';
+  pctx.fillText('LIVE VIEW BEGINS IMMEDIATELY', PANEL_W / 2, 150);
+  pctx.textAlign = 'left';
 }
 
 function setState(s, note) {
@@ -739,7 +788,7 @@ async function doPrint(bits, h) {
   const secs = ((performance.now() - t0) / 1000);
   log('printed ' + h + ' rows, ' + sent + ' B at ' + s.baud + ' baud — ' +
       secs.toFixed(1) + 's wall' + (S().speed !== 1 ? ' (sped up)' : ''), 'g');
-  setState('idle');
+  setState(frozen ? 'photo' : 'idle', frozen ? 'printed · hold to reprint' : null);
 }
 
 /* ---------- actions ---------- */
@@ -782,15 +831,24 @@ async function actShutter() {
     frozen = null; log('back to live view'); startLive(); return;
   }
   stopLive();
-  setState('refreshing', 'capturing');
   const bits = toPanelBits();
   frozen = { panel: bits, print: toPrintBits() };
   lastCapture = frozen;
   libAdd();
+  drawPanel(bits);                         // the frame becomes visibly static immediately
+  setState('photo', 'captured · hold shutter to print');
   await wait(S().einkMs);
-  drawPanel(bits);
-  setState('photo', 'press shutter to resume');
   clickLand();
+}
+
+function actHoldPrint() {
+  if (!frozen) {
+    log('hold ignored — tap once to capture a still first', 'w');
+    setState(state, 'tap to capture before printing');
+    return;
+  }
+  log('shutter held — printing captured still', 'g');
+  actPrint();
 }
 
 // kept so the legacy GPIO row still does something recognisable
@@ -856,7 +914,7 @@ async function menuSelect() {
 function showIdle() {
   if (source) { startLive(); return; }          // a feed means a live view, always
   if (lastCapture && lastCapture.panel) drawPanel(lastCapture.panel);
-  else panelText(['thermal-cam', '', 'Pick a file or', 'start the webcam.', '', 'Live view starts', 'by itself.']);
+  else drawWelcomeScreen();
 }
 
 async function actExit() {
@@ -943,24 +1001,49 @@ async function padPress(pad) {
   else log('pad ' + pad + ' — nothing bound here yet', 'w');
 }
 
-document.querySelectorAll('[data-pad]').forEach(el => {
+document.querySelectorAll('[data-pad]:not([data-pad="shutter"])').forEach(el => {
   el.addEventListener('click', () => { flashPad(el.dataset.pad, true); flashPad(el.dataset.pad, false);
                                        padPress(el.dataset.pad); });
 });
+
+const shutterButton = document.querySelector('[data-pad="shutter"]');
+const shutterGesture = createShutterGesture({
+  holdMs: 650,
+  onTap: () => { flashPad('shutter', false); echoKey('shutter'); clickPress(); actShutter(); },
+  onHold: () => { echoKey('shutter'); clickLand(); actHoldPrint(); }
+});
+shutterButton.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  if (shutterButton.setPointerCapture) shutterButton.setPointerCapture(e.pointerId);
+  flashPad('shutter', true); shutterGesture.press();
+});
+shutterButton.addEventListener('pointerup', e => { e.preventDefault(); shutterGesture.release(); });
+shutterButton.addEventListener('pointercancel', () => { shutterGesture.cancel(); flashPad('shutter', false); });
+shutterButton.addEventListener('contextmenu', e => e.preventDefault());
 
 const typing = () => /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
 
 addEventListener('keydown', e => {
   if (typing()) return;
   const pad = PAD_KEYS[e.key];
-  if (pad) { e.preventDefault(); if (!e.repeat) { flashPad(pad, true); padPress(pad); } return; }
+  if (pad) {
+    e.preventDefault();
+    if (!e.repeat) {
+      flashPad(pad, true);
+      if (pad === 'shutter') shutterGesture.press(); else padPress(pad);
+    }
+    return;
+  }
   if (e.key === 'Escape' && document.body.classList.contains('focus')) { setFocus(false); return; }
   const k = { q: 'capture', w: 'print', e: 'menu', r: 'exit' }[e.key.toLowerCase()];
   if (k) { e.preventDefault(); hit(k); }
 });
 addEventListener('keyup', e => {
   const pad = PAD_KEYS[e.key];
-  if (pad) flashPad(pad, false);
+  if (pad) {
+    flashPad(pad, false);
+    if (pad === 'shutter') shutterGesture.release();
+  }
 });
 
 /* ---------- focus mode ---------- */
@@ -1020,11 +1103,13 @@ $('btnCam').addEventListener('click', async () => {
     (v.srcObject?.getTracks() || []).forEach(t => t.stop());
     v.srcObject = null; source = null; $('btnCam').classList.remove('on');
     $('nocam').hidden = false;
+    stopLive(); frozen = null; setState('idle'); showIdle();
     log('webcam stopped'); return;
   }
   try {
     v.srcObject = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
     await v.play();
+    $('rotate').value = '0';                            // phone/webcam stays aligned with its viewport
     source = v; paperOut = false; setPaper();
     $('btnCam').classList.add('on');
     $('nocam').hidden = true;
