@@ -10,6 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 EMULATOR = ROOT / "docs" / "emulator.html"
 SHUTTER = ROOT / "docs" / "shutter.js"
+PRINT_LAYOUT = ROOT / "docs" / "print-layout.js"
 
 
 class EmulatorParser(HTMLParser):
@@ -51,6 +52,19 @@ class EmulatorFeedbackTests(unittest.TestCase):
         self.assertIn("shutter.js", self.parser.scripts)
         self.assertIn("Tap to capture", self.html)
         self.assertIn("Hold to print", self.html)
+
+    def test_print_is_lengthwise_with_short_edge_across_paper(self):
+        self.assertIn("print-layout.js", self.parser.scripts)
+        self.assertIn("Lengthwise — short edge across paper", self.html)
+        script = f"""
+const p=require({json.dumps(str(PRINT_LAYOUT))});
+console.log(JSON.stringify(p.lengthwisePrintLayout(264,176,384)));
+"""
+        result = subprocess.run(["node", "-e", script], text=True, capture_output=True, check=True)
+        self.assertEqual(
+            json.loads(result.stdout),
+            {"width": 384, "height": 576, "rotation": 90},
+        )
 
     def test_idle_screen_has_camera_graphic_renderer(self):
         self.assertIn("function drawWelcomeScreen()", self.html)
