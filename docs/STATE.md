@@ -1,135 +1,86 @@
-# Where we left off — 2026-07-29
+# Current engineering state — 2026-07-30
 
-## Read this first
+## Start here
 
-Everything is committed to **`feature/emulator-and-docs`** and pushed to both
-remotes. `master` is untouched on both. Nothing is half-finished on disk.
+Thermal Cam is a Raspberry Pi camera that previews on a 2.7-inch e-ink panel
+and prints a 384-pixel-wide photograph on 58 mm thermal paper.
 
-**Live:** <https://evrenucar.github.io/thermal-cam/> ·
-[emulator](https://evrenucar.github.io/thermal-cam/emulator.html) ·
-[status](https://evrenucar.github.io/thermal-cam/status.html)
+**Hosted:**
 
-**Locally:** `python3 -u tools/serve.py 8765`, then `/docs/emulator.html`.
-Run it in your own shell — background tasks here get reaped.
+- [Project dashboard](https://evrenucar.github.io/thermal-cam/)
+- [Browser emulator](https://evrenucar.github.io/thermal-cam/emulator.html)
+- [Detailed status](https://evrenucar.github.io/thermal-cam/status.html)
+- [Public repository](https://github.com/evrenucar/thermal-cam)
 
-### Two remotes, on purpose
+The public repository is the active source and GitHub Pages serves `docs/` from
+`master`. New work should happen on a feature branch and merge into `master`
+after tests pass.
 
-| Remote | Repo | Why |
-|---|---|---|
-| `origin` | `doodek/thermal-cam` (private) | The original. Push access only, no admin. |
-| `public` | `evrenucar/thermal-cam` (public) | Pages serves `/docs` from here. |
+## What works
 
-Pages could never work on `origin`: no admin rights, and Pages on a private repo
-needs a paid plan. Pushing to both is manual —
-`git push origin feature/emulator-and-docs` then
-`git push public feature/emulator-and-docs:master`.
+- Camera capture → e-ink preview → save → thermal print on Raspberry Pi 5.
+- ESC/POS bitmap printing at 9600 baud with chunk-size and heat pacing guards.
+- Six hardware-free printer driver regression checks in `pi/test_printer.py`.
+- Hosted emulator with live view, image upload, webcam input, rotation, crop,
+  d-pad controls, print animation, capture library and fault injection.
+- Browser Floyd–Steinberg dithering is isolated in `docs/dither.js`; parity tests
+  compare fixed grayscale patterns against Pillow's device pipeline.
+- Responsive project dashboard links the emulator, key files, current work,
+  hardware stack and roadmap.
+- ESP32 build artifacts are ignored and no longer tracked.
 
-### Emulator: the control model changed
+## Current development focus
 
-The old capture toggle is gone. It was the wrong model for a camera and it
-caused the stuck-on-capturing bug — the shutter was wired to a toggle, so one
-press started capturing and nothing ended it.
+1. Collect feedback on the hosted dashboard and emulator.
+2. Decide how to reduce the roughly 56-second print duration. About 26.3 seconds
+   is serial transfer alone at 9600 baud; speed changes require paper tests.
+3. Exercise the proposed d-pad control model in emulator focus mode.
+4. Build the mobile plywood development rig with every wire reachable.
 
-Now: **a source starts a live view by itself**, one refresh per e-ink cycle.
-The **shutter freezes** a frame; pressing it again resumes live. Controls are a
-4-way pad plus centre OK (arrow keys + Enter) and a dedicated shutter (Space),
-with a press tick and a settle tick so the 1.5 s refresh is acknowledged
-immediately.
+`docs/status.json` is the concise machine-readable task snapshot used by both
+hosted status views.
 
-Rotation is selectable — 90° is right for the device's mounted camera but wrong
-for a webcam, which is why the feed looked sideways. Framing defaults to
-**fill** (crop) rather than letterbox, and the print crops to match the preview.
+## Hardware work still required
 
+### Zero 2W serial path
 
+Bluetooth and WiFi must remain available. Test the mini-UART with a pinned core
+clock first and retain USB-serial as the fallback. Do not use
+`dtoverlay=disable-bt` as the product solution.
 
-Resume point for the review/design session. Delete this once it's stale.
+### Print speed and density
 
-## Grill: answered
+Do not raise baud or alter heat timing based only on the emulator. The bitmap
+path has previously failed as kanji output when serial data was corrupted, and
+power sag can resemble a software print-density bug. Validate signal integrity,
+density and printer temperature on real paper.
 
-All 13 answered on 2026-07-28 — recorded in
-[PRODUCT.md § Decisions](PRODUCT.md#decisions--answered-2026-07-28).
+### Power
 
-Three answers changed the plan:
+The internal LiPo and protection/charger path must comfortably sustain roughly
+1.5–2 A printer burn peaks without voltage sag.
 
-- **Bluetooth and WiFi must both stay usable**, which kills the
-  `dtoverlay=disable-bt` fix for the printer's UART. Now a hardware test:
-  mini-UART with a pinned core clock first, USB-serial as fallback.
-- **GitHub Pages hosting** means the emulator must dither in **JavaScript** —
-  Pages is static, no Python runs there. PIL stays authoritative for the device;
-  a **parity test** over fixed images keeps the two honest. That is what makes
-  "both" low-maintenance instead of two things to hand-sync.
-- **High-res originals are kept** for crop and reposition, so editing is a real
-  feature and the emulator has to model an edit state, not just
-  capture → preview → print.
+## Known software debt
 
-## Emulator — built
+- `pi/main.py` captures and dithers faster than the e-ink panel can refresh. It
+  wastes a core on Pi 5 and may consume the Zero 2W's practical CPU budget.
+- High-resolution originals are retained for future crop/reposition editing,
+  but the device UI for that flow does not exist yet.
+- `pi/lib/int/ui.py` is still an empty stub; the hosted d-pad interaction has not
+  been moved onto the device.
+- The emulator and Pillow parity tests currently cover deterministic grayscale
+  patterns, not the complete rotate/resize/crop pipeline.
 
-`docs/emulator.html`. Static, self-contained, phone-friendly, Pages-servable.
-Mirrors `main.py` and `printer.py`: same 90° rotation, same fit-and-centre for
-the panel, same 384px scale for print, Floyd–Steinberg to match PIL, and the
-**real burn-time formula** from `print_bitmap` driving the animation.
+## Commands
 
-Covers everything from Q9 except edit/crop, which was sidelined.
+```bash
+# All hardware-free checks
+python3 -m unittest discover -s tests -v
+python3 pi/test_printer.py
 
-### What it revealed on the first run
-
-**Printing one photo takes about a minute.** A 640×480 source becomes 512 rows,
-25,260 bytes. At 9600 baud that is **26.3 s of serial time before any burn
-pacing at all** — verified by arithmetic independently of the animation.
-
-That is a product problem, not a code problem, and it was invisible until the
-timing was modelled. Worth deciding what to do about it before the Zero 2W port:
-raising the baud rate is the obvious lever, and the driver already has a known
-sensitivity there.
-
-## Next up
-
-1. **Parity test** — fixed inputs through the JS dither and through PIL, assert
-   identical output. This is what keeps the web version honest without manual
-   syncing.
-2. **Turn on GitHub Pages** — repo Settings → Pages → source `master` / `/docs`.
-   Lands at <https://doodek.github.io/thermal-cam/>. `docs/.nojekyll` is already
-   in place so static files are served untouched.
-3. **Decide on print duration** — see above.
-
-## Done
-
-- **`pi/test_printer.py` written.** 6 checks, no framework, no hardware — a fake
-  serial port captures the bytes the driver would have sent. Mutation-verified:
-  raising `ROWS_PER_CHUNK` past the buffer cap, reversing the bit shift, and
-  corrupting the chunk header each make it fail.
-- **`print("hi")` removed** from `convert_pixel_array_to_binary`.
-- **Width guard**: `w > 384` and unsupported pixel types now raise `ValueError`
-  naming the problem, instead of returning `False` and surfacing as a
-  `TypeError` on a subscript further down.
-- **Deleted `pi/epd2in7_V2.py`** (stale fork — `main.py` inserts `lib/ext` ahead
-  of the script dir on `sys.path`, so it was always shadowed) and
-  **`pi/epd_2in7b_V2_test.py`** (vendor demo for the 3-colour panel we don't
-  use; imports a `waveshare_epd` package that isn't present).
-
-## Still needs your go-ahead
-
-Untrack the ESP32 build output — `git rm -r --cached arduino/esp32-trial/build`.
-1338 of 1452 tracked files. `.gitignore` now ignores that path but does **not**
-untrack what is already committed. Held back because it shows up as a very large
-deletion in `git status`.
-
-## Deliberately deferred
-
-- **Throttling the capture loop** (`main.py:436` spins with no sleep). Looks like
-  a free win, but Q04 may delete the loop outright.
-- **Deleting `pi/lib/int/ui.py`** (empty stub, GPIO 6 does nothing). Q10 decides
-  whether it has a future.
-
-Both would risk doing the work twice.
-
-## Uncommitted
-
-Nothing was committed this session. On `master`:
-
+# Local hosted pages
+python3 -m http.server 8765 --bind 127.0.0.1 --directory docs
 ```
- M README.md          # product direction, fixed the phantom test_printer.py reference
-?? .gitignore         # new — repo had none
-?? docs/              # PRODUCT.md, STATE.md
-?? tools/             # serve.py, grill.html, overview.html, README.md
-```
+
+For printer-driver invariants and paths that should not be touched, read
+`CLAUDE.md` before editing device code.

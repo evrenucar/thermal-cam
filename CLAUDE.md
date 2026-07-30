@@ -79,13 +79,15 @@ driver would have sent. Run it after any change to `printer.py`.
 live e-ink panel, paper strip, d-pad, fault injection. Live at
 <https://evrenucar.github.io/thermal-cam/emulator.html>.
 
-Its dithering mirrors PIL's Floyd–Steinberg. If you change the image pipeline in
-`main.py`, change it there too — a parity test to enforce that is still TODO.
+Its dithering mirrors PIL's Floyd–Steinberg through `docs/dither.js`.
+`tests/test_dither_parity.py` compares fixed patterns against Pillow; extend that
+test whenever the browser or device image pipeline changes.
 
-## Two remotes
+## Repository and publishing
 
-`origin` is `doodek/thermal-cam` (**private**). `public` is
-`evrenucar/thermal-cam`, which GitHub Pages serves `/docs` from. Publishing
-takes two pushes; there is no automation. See [docs/STATE.md](docs/STATE.md).
+`origin` is the active public repository: `evrenucar/thermal-cam`. GitHub Pages
+serves `docs/` from `master`. Develop on a focused feature branch, run the
+hardware-free suites, then merge and verify the hosted URLs.
 
-Work happens on `feature/emulator-and-docs`. Don't commit to `master`.
+Work on a focused feature branch; do not commit new development directly to
+`master`.

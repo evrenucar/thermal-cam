@@ -3,197 +3,61 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>thermal-cam — a camera that prints</title>
-<meta name="description" content="A handheld camera that prints thermal-paper photos. Raspberry Pi, e-ink preview, 58mm ESC/POS printer.">
-<meta name="color-scheme" content="light dark">
+<title>Thermal Cam — project dashboard</title>
+<meta name="description" content="Development dashboard for Thermal Cam: a camera that prints on thermal paper.">
+<meta name="theme-color" content="#0b0b09">
 <style>
-  :root{
-    --bg:#fbfaf7; --panel:#fff; --ink:#16150f; --dim:#5f5c50; --rule:#e2ded2;
-    --accent:#b4451f; --soft:#fdf0e9; --code:#f3f0e7;
-    --ok:#2f6b3a; --ok-soft:#eaf4ec; --warn:#8a6510; --warn-soft:#fbf3e0;
-  }
-  @media (prefers-color-scheme:dark){
-    :root{
-      --bg:#14140f; --panel:#1c1c16; --ink:#eceadf; --dim:#9b978a; --rule:#2e2d24;
-      --accent:#ec7a4a; --soft:#2a1b12; --code:#23231b;
-      --ok:#79b98a; --ok-soft:#16241a; --warn:#d8ac4e; --warn-soft:#241d0f;
-    }
-  }
-  :root[data-theme="dark"]{--bg:#14140f;--panel:#1c1c16;--ink:#eceadf;--dim:#9b978a;--rule:#2e2d24;--accent:#ec7a4a;--soft:#2a1b12;--code:#23231b;--ok:#79b98a;--ok-soft:#16241a;--warn:#d8ac4e;--warn-soft:#241d0f;}
-  :root[data-theme="light"]{--bg:#fbfaf7;--panel:#fff;--ink:#16150f;--dim:#5f5c50;--rule:#e2ded2;--accent:#b4451f;--soft:#fdf0e9;--code:#f3f0e7;--ok:#2f6b3a;--ok-soft:#eaf4ec;--warn:#8a6510;--warn-soft:#fbf3e0;}
-
-  *{box-sizing:border-box}
-  html{-webkit-text-size-adjust:100%}
-  body{margin:0;background:var(--bg);color:var(--ink);
-       font:16px/1.65 ui-sans-serif,-apple-system,"Segoe UI",system-ui,sans-serif;
-       -webkit-font-smoothing:antialiased;overflow-x:hidden}
-  .wrap{max-width:58rem;margin:0 auto;padding:2rem 1.15rem 5rem}
-  @media(min-width:40rem){.wrap{padding:3.5rem 2rem 7rem}}
-  a{color:var(--accent)}
-  code{font-family:ui-monospace,"Cascadia Code",Consolas,monospace;font-size:.86em;
-       background:var(--code);padding:.12em .38em;border-radius:3px;word-break:break-word}
-
-  header{margin-bottom:2rem}
-  .pill{display:inline-flex;align-items:center;gap:.45rem;font:600 .7rem/1 ui-monospace,Consolas,monospace;
-        letter-spacing:.08em;text-transform:uppercase;color:var(--warn);
-        background:var(--warn-soft);border:1px solid var(--rule);
-        padding:.42rem .6rem;border-radius:99px;margin-bottom:1rem}
-  .pill::before{content:"";width:.45rem;height:.45rem;border-radius:50%;background:currentColor}
-  h1{font-size:clamp(2.1rem,9vw,3.4rem);margin:0 0 .5rem;letter-spacing:-.03em;
-     font-weight:660;line-height:1.05}
-  h1 span{color:var(--accent)}
-  .tag{font-size:clamp(1rem,3.4vw,1.2rem);color:var(--dim);margin:0;max-width:34rem}
-
-  h2{font-size:1.3rem;margin:3rem 0 .9rem;letter-spacing:-.015em;font-weight:640}
-  h3{font-size:.95rem;margin:0 0 .3rem;font-weight:640}
-
-  /* link cards */
-  .grid{display:grid;gap:.8rem;grid-template-columns:1fr;margin:1.5rem 0}
-  @media(min-width:34rem){.grid{grid-template-columns:1fr 1fr}}
-  .card{display:block;background:var(--panel);border:1px solid var(--rule);border-radius:12px;
-        padding:1.1rem 1.2rem;text-decoration:none;color:inherit;
-        transition:border-color .15s,transform .1s;min-height:5.5rem}
-  .card:hover{border-color:var(--accent)}
-  .card:active{transform:scale(.99)}
-  .card .k{display:flex;align-items:center;gap:.5rem;margin-bottom:.25rem}
-  .card .k b{font-size:1.02rem;font-weight:640}
-  .card p{margin:0;color:var(--dim);font-size:.88rem;line-height:1.5}
-  .card.soon{opacity:.62;cursor:default;border-style:dashed}
-  .card.soon:hover{border-color:var(--rule)}
-  .badge{font:600 .62rem/1 ui-monospace,Consolas,monospace;letter-spacing:.06em;
-         padding:.28rem .38rem;border-radius:4px;border:1px solid currentColor;flex:none}
-  .b-soon{color:var(--warn)} .b-live{color:var(--ok)} .b-local{color:var(--dim)}
-
-  .panel{background:var(--panel);border:1px solid var(--rule);border-radius:12px;
-         padding:1.15rem 1.25rem;margin:1.1rem 0}
-  .panel p:first-child{margin-top:0} .panel p:last-child{margin-bottom:0}
-
-  /* spec rows — no table, so phones never scroll sideways */
-  .rows{display:flex;flex-direction:column;gap:0}
-  .row{display:flex;flex-wrap:wrap;gap:.3rem 1rem;padding:.7rem 0;border-bottom:1px solid var(--rule)}
-  .row:last-child{border-bottom:none}
-  .row .lab{flex:0 0 8.5rem;color:var(--dim);font-size:.85rem}
-  .row .val{flex:1 1 12rem;font-size:.93rem;min-width:0}
-
-  /* roadmap */
-  .stage{display:flex;gap:.85rem;padding:.8rem 0;border-bottom:1px solid var(--rule);align-items:flex-start}
-  .stage:last-child{border-bottom:none}
-  .dot{flex:none;width:1.5rem;height:1.5rem;border-radius:50%;border:2px solid var(--rule);
-       display:grid;place-items:center;font:700 .62rem ui-monospace,Consolas,monospace;
-       color:var(--dim);margin-top:.15rem}
-  .stage.done .dot{background:var(--ok);border-color:var(--ok);color:#fff}
-  .stage.now .dot{border-color:var(--accent);color:var(--accent)}
-  .stage .t{font-weight:600;font-size:.96rem}
-  .stage .d{color:var(--dim);font-size:.86rem}
-  .stage.done .t{color:var(--dim);text-decoration:line-through;text-decoration-thickness:1px}
-
-  ul.clean{padding-left:1.15rem;margin:.6rem 0}
-  ul.clean li{margin:.35rem 0}
-
-  .log{border-left:2px solid var(--rule);padding-left:1rem;margin:1rem 0}
-  .log .when{font:600 .7rem ui-monospace,Consolas,monospace;color:var(--accent);letter-spacing:.05em}
-  .log ul{margin:.35rem 0 1.3rem}
-
-  footer{margin-top:3.5rem;padding-top:1.2rem;border-top:1px solid var(--rule);
-         color:var(--dim);font-size:.82rem}
-  footer a{color:var(--dim)}
+:root{--bg:#0b0b09;--panel:#141410;--panel2:#1a1a15;--ink:#f3f0e7;--dim:#a6a194;--line:#302f27;--hot:#ff6a2a;--hot2:#ffb088;--green:#82c995;--amber:#e7bd61;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--sans:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--sans);-webkit-font-smoothing:antialiased}a{color:inherit}.shell{width:min(1180px,calc(100% - 32px));margin:auto;padding:24px 0 80px}.nav{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:8px 0 34px}.brand{font:700 13px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase}.brand i{display:inline-block;width:9px;height:9px;background:var(--hot);border-radius:50%;margin-right:10px;box-shadow:0 0 18px var(--hot)}.navlinks{display:flex;gap:18px;flex-wrap:wrap}.navlinks a{color:var(--dim);text-decoration:none;font:600 12px var(--mono);text-transform:uppercase;letter-spacing:.08em}.navlinks a:hover{color:var(--ink)}
+.hero{border:1px solid var(--line);min-height:430px;display:grid;grid-template-columns:1.3fr .7fr;position:relative;overflow:hidden;background:radial-gradient(circle at 82% 35%,#3a1b0d 0,transparent 31%),linear-gradient(135deg,#11110e,#090907)}.hero:after{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px);background-size:28px 28px;pointer-events:none}.hero-copy{padding:clamp(34px,6vw,74px);align-self:end;position:relative;z-index:1}.eyebrow,.label{font:700 11px var(--mono);letter-spacing:.15em;text-transform:uppercase;color:var(--hot2)}h1{font-size:clamp(52px,9vw,106px);line-height:.85;letter-spacing:-.07em;margin:18px 0 26px;max-width:760px}h1 span{color:var(--hot)}.lede{max-width:590px;color:var(--dim);font-size:clamp(17px,2vw,21px);margin:0}.hero-device{display:grid;place-items:center;position:relative;z-index:1}.camera{width:230px;height:280px;border:1px solid #5b4c3f;background:#12120f;border-radius:24px;position:relative;box-shadow:0 30px 80px #000}.lens{position:absolute;width:96px;height:96px;border-radius:50%;top:40px;left:67px;border:12px solid #2d2c26;background:radial-gradient(circle,#0a0a09 0 23%,#45423a 24% 29%,#111 30% 100%);box-shadow:0 0 0 1px #5a554a}.screen{position:absolute;left:38px;right:38px;bottom:45px;height:83px;background:#d8d4c5;border:9px solid #272722;color:#111;display:grid;place-items:center;font:700 11px/1.4 var(--mono);text-align:center}.paper{position:absolute;width:94px;height:104px;right:-35px;bottom:22px;background:linear-gradient(#f4f0e5,#ddd6c5);color:#111;padding:13px 9px;font:700 8px/1.55 var(--mono);box-shadow:0 12px 26px #000;transform:rotate(4deg)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:30px}.button{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:0 18px;border:1px solid var(--line);text-decoration:none;font:700 12px var(--mono);text-transform:uppercase;letter-spacing:.07em;background:var(--panel)}.button.primary{background:var(--hot);border-color:var(--hot);color:#120b07}.button:hover{border-color:var(--hot)}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-top:0}.metric{padding:22px 24px;border-right:1px solid var(--line)}.metric:last-child{border:0}.metric b{display:block;font-size:24px;letter-spacing:-.04em}.metric span{color:var(--dim);font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.1em}.section{padding-top:72px}.section-head{display:flex;justify-content:space-between;align-items:end;gap:24px;margin-bottom:22px;border-bottom:1px solid var(--line);padding-bottom:16px}.section h2{margin:5px 0 0;font-size:clamp(28px,4vw,46px);letter-spacing:-.045em;line-height:1}.section-note{max-width:430px;color:var(--dim);font-size:14px;margin:0}.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}.card{background:var(--panel);border:1px solid var(--line);padding:22px;min-width:0}.card:hover{border-color:#514e42}.link-card{grid-column:span 4;text-decoration:none;min-height:170px;display:flex;flex-direction:column;justify-content:space-between}.link-card.featured{background:var(--hot);border-color:var(--hot);color:#140b07}.card-top{display:flex;align-items:center;justify-content:space-between;gap:12px}.code{font:600 10px var(--mono);letter-spacing:.08em;text-transform:uppercase;opacity:.72}.arrow{font-size:23px}.card h3{margin:20px 0 8px;font-size:21px;letter-spacing:-.025em}.card p{margin:0;color:var(--dim);font-size:14px}.featured p{color:#3c1c0e}.status-layout{display:grid;grid-template-columns:1.15fr .85fr;gap:12px}.now-card{background:var(--panel);border:1px solid var(--line);padding:28px}.live{display:inline-flex;align-items:center;gap:8px;color:var(--green);font:700 10px var(--mono);letter-spacing:.12em;text-transform:uppercase}.live:before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 10px currentColor}.now-card h3{font-size:clamp(27px,4vw,43px);line-height:1.04;letter-spacing:-.045em;margin:24px 0 12px}.now-card p{color:var(--dim);max-width:700px}.stamp{margin-top:28px;color:var(--dim);font:11px var(--mono)}.tasklist{border:1px solid var(--line);background:var(--panel)}.task{padding:18px 20px;border-bottom:1px solid var(--line)}.task:last-child{border:0}.task b{font-size:14px}.task small{display:block;color:var(--dim);margin-top:5px;line-height:1.45}.roadmap{grid-column:span 8}.hardware{grid-column:span 4}.step{display:grid;grid-template-columns:34px 1fr auto;gap:14px;padding:18px 0;border-bottom:1px solid var(--line);align-items:start}.step:last-child{border:0}.step-num{width:28px;height:28px;border:1px solid var(--line);display:grid;place-items:center;font:700 11px var(--mono)}.step.done .step-num{background:var(--green);border-color:var(--green);color:#081009}.step.now .step-num{border-color:var(--hot);color:var(--hot)}.step b{font-size:15px}.step p{margin:3px 0 0;color:var(--dim);font-size:13px}.tag{font:700 9px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}.spec{display:flex;justify-content:space-between;gap:16px;padding:13px 0;border-bottom:1px solid var(--line);font-size:13px}.spec:last-child{border:0}.spec span{color:var(--dim)}.spec b{text-align:right}.footer{margin-top:74px;padding-top:22px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:20px;color:var(--dim);font:11px var(--mono)}
+@media(max-width:800px){.shell{width:min(100% - 22px,1180px)}.navlinks a:not(:first-child){display:none}.hero{grid-template-columns:1fr;min-height:unset}.hero-copy{padding:42px 24px 34px}.hero-device{padding:20px 0 50px}.camera{transform:scale(.84)}.metrics{grid-template-columns:1fr 1fr}.metric:nth-child(2){border-right:0}.metric:nth-child(-n+2){border-bottom:1px solid var(--line)}.section{padding-top:54px}.section-head{display:block}.section-note{margin-top:12px}.link-card{grid-column:span 6}.status-layout{grid-template-columns:1fr}.roadmap,.hardware{grid-column:span 12}}
+@media(max-width:520px){h1{font-size:58px}.link-card{grid-column:span 12}.metric{padding:17px}.metric b{font-size:20px}.now-card{padding:22px}.step{grid-template-columns:30px 1fr}.step .tag{display:none}.footer{display:block}.footer span{display:block;margin-top:8px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 </style>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%96%A8%3C/text%3E%3C/svg%3E">
 </head>
 <body>
-<div class="wrap">
+<div class="shell">
+<nav class="nav"><div class="brand"><i></i>Thermal Cam / Dev</div><div class="navlinks"><a href="emulator.html">Open emulator</a><a href="#current-work">Current work</a><a href="#roadmap">Roadmap</a><a href="https://github.com/evrenucar/thermal-cam">GitHub</a></div></nav>
+<main>
+<section class="hero" id="mission">
+<div class="hero-copy"><div class="eyebrow">Prototype 01 · Raspberry Pi</div><h1>A camera<br>that <span>prints.</span></h1><p class="lede">Point, shoot, and a thermal-paper photograph comes out. No phone, no cloud, no disposable cartridge.</p><div class="actions"><a class="button primary" href="emulator.html">Try the emulator ↗</a><a class="button" href="status.html">Detailed status</a></div></div>
+<div class="hero-device" aria-label="Illustration of the Thermal Cam prototype"><div class="camera"><div class="lens"></div><div class="screen">176 × 264<br>E-INK PREVIEW</div><div class="paper">THERMAL CAM<br>──────────<br>A CAMERA<br>THAT PRINTS<br>──────────<br>384 PX</div></div></div>
+</section>
+<div class="metrics"><div class="metric"><b>176×264</b><span>E-ink panel</span></div><div class="metric"><b>384 px</b><span>Print width</span></div><div class="metric"><b>9600</b><span>Serial baud</span></div><div class="metric"><b>6 / 6</b><span>Driver tests</span></div></div>
 
-<header>
-  <span class="pill">Prototyping · Pi 5 bench</span>
-  <h1>thermal&#8209;cam <span>·</span></h1>
-  <p class="tag">A camera that prints. Point, shoot, and a thermal&#8209;paper photo comes out. No screen to review on, no phone, no cloud — the paper is the photo.</p>
-</header>
+<section class="section" id="project-links"><div class="section-head"><div><div class="label">01 / Navigation</div><h2>Important links</h2></div><p class="section-note">The shortest route to the working prototype, source, and decisions.</p></div><div class="grid">
+<a class="card link-card featured" href="emulator.html"><div class="card-top"><span class="code">Interactive · Hosted</span><span class="arrow">↗</span></div><div><h3>Browser emulator</h3><p>Use the e-ink UI, camera inputs, d-pad, printer animation and fault injection without hardware.</p></div></a>
+<a class="card link-card" href="status.html"><div class="card-top"><span class="code">Live snapshot</span><span class="arrow">→</span></div><div><h3>Development status</h3><p>Current task, next work, completed work and hardware blockers.</p></div></a>
+<a class="card link-card" href="https://github.com/evrenucar/thermal-cam"><div class="card-top"><span class="code">GitHub</span><span class="arrow">↗</span></div><div><h3>Repository</h3><p>Source, history and public project files.</p></div></a>
+<a class="card link-card" href="https://github.com/evrenucar/thermal-cam/blob/master/pi/main.py"><div class="card-top"><span class="code">Device entry point</span><span class="arrow">↗</span></div><div><h3>pi/main.py</h3><p>Camera capture, display worker, image preparation and GPIO application flow.</p></div></a>
+<a class="card link-card" href="https://github.com/evrenucar/thermal-cam/blob/master/pi/lib/ext/printer.py"><div class="card-top"><span class="code">Core driver</span><span class="arrow">↗</span></div><div><h3>Printer driver</h3><p>ESC/POS bitmap framing, burn pacing and serial output.</p></div></a>
+<a class="card link-card" href="https://github.com/evrenucar/thermal-cam/blob/master/pi/test_printer.py"><div class="card-top"><span class="code">Hardware-free checks</span><span class="arrow">↗</span></div><div><h3>Printer tests</h3><p>Six regression checks for framing, packing, padding and input validation.</p></div></a>
+<a class="card link-card" href="https://github.com/evrenucar/thermal-cam/blob/master/docs/PRODUCT.md"><div class="card-top"><span class="code">Product decisions</span><span class="arrow">↗</span></div><div><h3>Product direction</h3><p>Target hardware, roadmap, design decisions and constraints.</p></div></a>
+<a class="card link-card" href="https://github.com/evrenucar/thermal-cam/blob/master/docs/STATE.md"><div class="card-top"><span class="code">Resume here</span><span class="arrow">↗</span></div><div><h3>Engineering state</h3><p>Known issues, gotchas, completed work and the last hand-off.</p></div></a>
+</div></section>
 
-<div class="grid">
-  <a class="card" href="emulator.html">
-    <div class="k"><b>Emulator</b><span class="badge b-live">LIVE</span></div>
-    <p>Run the interface in your browser — e&#8209;ink panel, paper strip, buttons, menu, fault injection. No hardware needed.</p>
-  </a>
-  <a class="card" href="status.html">
-    <div class="k"><b>Status</b><span class="badge b-live">LIVE</span></div>
-    <p>What's being worked on right now, what's next, and what's waiting on you. Updates as work happens.</p>
-  </a>
-  <a class="card" href="https://github.com/evrenucar/thermal-cam" target="_blank" rel="noopener">
-    <div class="k"><b>Repository</b><span class="badge b-live">GITHUB</span></div>
-    <p>Browse the source. <code>pi/</code> is what runs on the device; everything else is prototypes.</p>
-  </a>
-  <a class="card" href="https://github.com/evrenucar/thermal-cam/blob/master/docs/PRODUCT.md" target="_blank" rel="noopener">
-    <div class="k"><b>Product direction</b><span class="badge b-live">DOC</span></div>
-    <p>Where this is going, the Pi 5 → Zero 2W gap, the roadmap, and every decision made so far.</p>
-  </a>
-  <a class="card" href="https://github.com/evrenucar/thermal-cam/blob/master/docs/STATE.md" target="_blank" rel="noopener">
-    <div class="k"><b>Current state</b><span class="badge b-live">DOC</span></div>
-    <p>What's done, what's blocked, what's deliberately deferred. Start here when picking work back up.</p>
-  </a>
+<section class="section" id="current-work"><div class="section-head"><div><div class="label">02 / Development</div><h2>Current work</h2></div><p class="section-note">Loaded from the same status snapshot as the detailed board.</p></div><div class="status-layout"><article class="now-card"><span class="live">Active development</span><h3 id="current-task">Loading current task…</h3><p id="current-detail">Reading status.json</p><div class="stamp" id="current-stamp">SYNCING</div></article><div class="tasklist" id="next-tasks"><div class="task"><b>Loading queue…</b></div></div></div></section>
+
+<section class="section" id="roadmap"><div class="section-head"><div><div class="label">03 / Plan</div><h2>Roadmap</h2></div><p class="section-note">First make the behavior honest, then make the hardware small.</p></div><div class="grid"><div class="card roadmap">
+<div class="step done"><div class="step-num">✓</div><div><b>Capture → e-ink → thermal print</b><p>End-to-end path works on the Raspberry Pi 5.</p></div><span class="tag">Done</span></div>
+<div class="step done"><div class="step-num">✓</div><div><b>Browser emulator</b><p>UI and print behavior can be reviewed without the physical rig.</p></div><span class="tag">Done</span></div>
+<div class="step now"><div class="step-num">1</div><div><b>Plywood development rig</b><p>Mount every component visibly and keep it mobile enough to use as a camera.</p></div><span class="tag">Now</span></div>
+<div class="step"><div class="step-num">2</div><div><b>Freeze and optimize the image path</b><p>Stop wasted capture work and protect the 512 MB Zero 2W memory budget.</p></div><span class="tag">Next</span></div>
+<div class="step"><div class="step-num">3</div><div><b>Port to Raspberry Pi Zero 2W</b><p>Swap boards on the same rig after behavior is stable.</p></div><span class="tag">Later</span></div>
+<div class="step"><div class="step-num">4</div><div><b>Compact form factor</b><p>Internal LiPo, charging, enclosure and product-scale packaging.</p></div><span class="tag">Later</span></div>
+</div><aside class="card hardware" id="system"><div class="label">System / Current target</div><h3>Hardware stack</h3><div class="spec"><span>Development SBC</span><b>Raspberry Pi 5</b></div><div class="spec"><span>Product target</span><b>Pi Zero 2W</b></div><div class="spec"><span>Display</span><b>Waveshare 2.7″</b></div><div class="spec"><span>Printer</span><b>58 mm ESC/POS</b></div><div class="spec"><span>Camera</span><b>Picamera2</b></div><div class="spec"><span>Power target</span><b>Internal LiPo</b></div><div class="spec"><span>Peak printer draw</span><b>~1.5–2 A</b></div></aside></div></section>
+</main>
+<footer class="footer"><div>THERMAL CAM · OPEN DEVELOPMENT DASHBOARD</div><span><a href="https://github.com/evrenucar">EVREN UCAR</a> · <a href="https://github.com/evrenucar/thermal-cam">SOURCE</a></span></footer>
 </div>
-
-<p style="color:var(--dim);font-size:.87rem;margin-top:-.3rem">
-  The code review and grill pages live in <code>tools/</code> and need a local server —
-  <code>python3 tools/serve.py</code>. Everything linked above works from a phone with nothing installed.
-</p>
-
-<h2>What it is</h2>
-<div class="panel">
-  <div class="rows">
-    <div class="row"><span class="lab">Now</span><span class="val">Raspberry Pi 5 on the bench — chosen for development speed, not as a product decision.</span></div>
-    <div class="row"><span class="lab">Target</span><span class="val">Raspberry Pi Zero 2W, compact enough to hold in one hand.</span></div>
-    <div class="row"><span class="lab">Display</span><span class="val">Waveshare 2.7&quot; e&#8209;ink, 176×264, 1&#8209;bit. Roughly 1.5 s to refresh.</span></div>
-    <div class="row"><span class="lab">Printer</span><span class="val">58 mm thermal, ESC/POS, 384 px wide, 9600 baud.</span></div>
-    <div class="row"><span class="lab">Controls</span><span class="val">Four GPIO buttons. No touchscreen, no menus worth the name yet.</span></div>
-    <div class="row"><span class="lab">Power</span><span class="val">Internal LiPo + charger board. Must sustain the printer's ~1.5–2 A burn peaks without sagging.</span></div>
-  </div>
-</div>
-
-<h2>The gap that matters</h2>
-<p>The Zero 2W is roughly <b>5× slower per core</b> with <b>512 MB</b> of RAM against the Pi 5's multiple gigabytes. Two things in the current code have not paid for that yet:</p>
-<ul class="clean">
-  <li>The capture loop spins flat out, capturing 1640×1232 and dithering in Python, then discards almost every frame because the e&#8209;ink cannot keep up.</li>
-  <li>512 MB is not much once camera buffers and image intermediates are live at that resolution.</li>
-</ul>
-<p style="color:var(--dim);font-size:.9rem">Neither is fixed. Both are deliberately deferred until the capture→print path is frozen — see <a href="https://github.com/evrenucar/thermal-cam/blob/master/docs/PRODUCT.md" target="_blank" rel="noopener">Product direction</a>.</p>
-
-<h2>Roadmap</h2>
-<div class="panel">
-  <div class="stage done"><div class="dot">✓</div><div><div class="t">Capture → e-ink → print on Pi 5</div><div class="d">Works today.</div></div></div>
-  <div class="stage now"><div class="dot">1</div><div><div class="t">Plywood rig</div><div class="d">Every component mounted and testable. Ugly is fine, but mobile — usable handheld like a camera.</div></div></div>
-  <div class="stage done"><div class="dot">✓</div><div><div class="t">Browser emulator</div><div class="d">Built. Interface design with no hardware.</div></div></div>
-  <div class="stage"><div class="dot">2</div><div><div class="t">Freeze the capture→print path</div><div class="d">Cut what the Zero 2W cannot afford.</div></div></div>
-  <div class="stage"><div class="dot">3</div><div><div class="t">Port to Pi Zero 2W</div><div class="d">Same rig, one board swapped. After the path is frozen and the UI settled.</div></div></div>
-  <div class="stage"><div class="dot">4</div><div><div class="t">Compact form factor</div><div class="d">Enclosure and power.</div></div></div>
-</div>
-
-<h2>Open on hardware</h2>
-<div class="panel">
-  <h3>The serial port conflict</h3>
-  <p style="color:var(--dim);font-size:.9rem;margin:.2rem 0 0">The printer needs a stable UART. On a Zero 2W the good one is claimed by Bluetooth, and Bluetooth and WiFi both have to stay usable — so the clean fix is off the table. The fallback UART's baud drifts with CPU frequency unless the clock is pinned, and a drifting baud rate is exactly what corrupted bitmaps into kanji the first time. To be tested on hardware, not decided on paper.</p>
-</div>
-
-<h2>Recent work</h2>
-<div class="log">
-  <div class="when">2026-07-28</div>
-  <ul class="clean">
-    <li><b>Browser emulator built.</b> Runs the interface with no hardware — and immediately showed that
-        printing one photo takes about <b>a minute</b> at 9600 baud.</li>
-    <li>Product direction written down for the first time; 13 design questions answered.</li>
-    <li><b>First tests in the repo.</b> <code>pi/test_printer.py</code> — 6 checks, no hardware needed, verified by deliberately re-introducing three real bugs.</li>
-    <li>Printer driver: width and pixel-type errors now name themselves instead of failing obscurely further down.</li>
-    <li>Deleted two dead files: a shadowed e-ink driver fork and a vendor demo for a panel we don't use.</li>
-    <li>Added a <code>.gitignore</code> — the repo had none, and 92% of tracked files are ESP32 build output.</li>
-  </ul>
-</div>
-
-<footer>
-  <p>Built by <a href="https://github.com/evrenucar" target="_blank" rel="noopener">evrenucar</a> ·
-     <a href="https://github.com/evrenucar/thermal-cam" target="_blank" rel="noopener">source on GitHub</a></p>
-  <p>This page is static and self-contained — it works offline and on a phone.</p>
-</footer>
-
-</div>
+<script>
+"use strict";
+function esc(value){return String(value).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function ago(iso){var seconds=(Date.now()-new Date(iso).getTime())/1000;if(!isFinite(seconds))return iso;if(seconds<60)return "just now";if(seconds<3600)return Math.floor(seconds/60)+" min ago";if(seconds<86400)return Math.floor(seconds/3600)+" h ago";return Math.floor(seconds/86400)+" d ago";}
+function renderStatus(status){document.getElementById("current-task").textContent=status.now.task;document.getElementById("current-detail").textContent=status.now.detail;document.getElementById("current-stamp").textContent="STATUS UPDATED "+ago(status.updated).toUpperCase();var items=(status.next||[]).slice(0,3);document.getElementById("next-tasks").innerHTML=items.map(function(item,index){return '<div class="task"><span class="code">NEXT 0'+(index+1)+'</span><br><b>'+esc(item.task)+'</b><small>'+esc(item.why)+'</small></div>';}).join("");}
+fetch("status.json?t="+Date.now()).then(function(response){if(!response.ok)throw new Error("status unavailable");return response.json();}).then(renderStatus).catch(function(){document.getElementById("current-task").textContent="Status temporarily offline";document.getElementById("current-detail").textContent="Open the detailed status board for the last committed snapshot.";document.getElementById("next-tasks").innerHTML='<div class="task"><a href="status.html">Open detailed status →</a></div>';});
+</script>
 <script src="inbox.js" defer></script>
 </body>
 </html>
