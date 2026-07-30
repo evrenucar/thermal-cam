@@ -300,6 +300,8 @@
           <option value="fill" selected>Fill — crop to panel</option>
           <option value="fit">Fit — white bars</option>
         </select></div>
+      <div class="row"><label>Print orientation</label>
+        <span class="v" style="min-width:0">Lengthwise — short edge across paper</span></div>
       <div class="row"><label>Click sound</label>
         <input type="checkbox" id="sound" checked></div>
     </div>
@@ -322,8 +324,9 @@
           <code>prepare_for_display</code> — shown in the requested landscape 264&#215;176 viewport and
           centred or cropped according to the framing control. About <b>46k pixels</b>.</span></div>
         <div class="row"><label>Paper</label><span style="flex:1 1 12rem;font-size:.82rem">
-          <code>prepare_for_printer</code> — scaled so the <b>width</b> is 384, height follows.
-          No letterboxing, no crop. Often <b>4&#215; more pixels</b> than the panel.</span></div>
+          The captured landscape frame is rotated <b>90°</b>. Its short edge fills all
+          <b>384 dots</b> across the print head and its long edge runs with the paper,
+          producing a 384&#215;576 image at maximum size.</span></div>
         <p class="hint" style="margin-top:.6rem">So the paper shows more detail and no white bars,
            while the panel is a low-resolution preview of the same framing. Both are dithered
            with Floyd–Steinberg, but dithering ~46k pixels and ~200k pixels from the same image
@@ -395,6 +398,7 @@
 
 <script src="dither.js"></script>
 <script src="shutter.js"></script>
+<script src="print-layout.js"></script>
 <script>
 "use strict";
 /* =========================================================================
@@ -537,48 +541,46 @@ function sourceSize() {
 // main.py prepare_for_display: rotate, scale into the panel, dither.
 // "fit" is what main.py does today (letterbox on white). "fill" crops to the
 // panel instead, which is what you want when the source aspect isn't 3:2.
-function toPanelBits() {
+function renderPanelFrame(targetW, targetH) {
   const sz = sourceSize(); if (!sz) return null;
   const rot = rotateBy(source, sz.w, sz.h, ROT());
   const rw = rot.width || sz.w, rh = rot.height || sz.h;
 
   const c = document.createElement('canvas');
-  c.width = PANEL_W; c.height = PANEL_H;
+  c.width = targetW; c.height = targetH;
   const x = c.getContext('2d');
-  x.fillStyle = '#fff'; x.fillRect(0, 0, PANEL_W, PANEL_H);
+  x.fillStyle = '#fff'; x.fillRect(0, 0, targetW, targetH);
 
-  const s = FILL() ? Math.max(PANEL_W / rw, PANEL_H / rh)    // cover, then centre-crop
-                   : Math.min(PANEL_W / rw, PANEL_H / rh);   // contain, white bars
+  const s = FILL() ? Math.max(targetW / rw, targetH / rh)    // cover, then centre-crop
+                   : Math.min(targetW / rw, targetH / rh);   // contain, white bars
   const dw = Math.max(1, Math.round(rw * s)), dh = Math.max(1, Math.round(rh * s));
-  x.drawImage(rot, Math.round((PANEL_W - dw) / 2), Math.round((PANEL_H - dh) / 2), dw, dh);
+  x.drawImage(rot, Math.round((targetW - dw) / 2), Math.round((targetH - dh) / 2), dw, dh);
+  return c;
+}
+
+function toPanelBits() {
+  const c = renderPanelFrame(PANEL_W, PANEL_H); if (!c) return null;
+  const x = c.getContext('2d');
   return dither(grayscale(x.getImageData(0, 0, PANEL_W, PANEL_H)), PANEL_W, PANEL_H);
 }
 
-// main.py prepare_for_printer: rotate, scale to 384 wide, dither.
-// In "fill" mode the print is cropped to the same framing the panel showed, so
-// what you previewed is what comes out -- otherwise they disagree on aspect.
+// Print lengthwise: render the same 3:2 composition at printer resolution, then
+// rotate it so the short edge spans the 384-dot head and the long edge feeds out.
 function toPrintBits() {
-  const sz = sourceSize(); if (!sz) return null;
-  const rot = rotateBy(source, sz.w, sz.h, ROT());
-  const rw = rot.width || sz.w, rh = rot.height || sz.h;
-
-  let ph, sw, sh, sx, sy;
-  if (FILL()) {
-    ph = Math.round(PRINT_W * (PANEL_H / PANEL_W));      // same 3:2 landscape shape as the panel
-    const s = Math.max(PRINT_W / rw, ph / rh);
-    sw = PRINT_W / s; sh = ph / s;
-    sx = (rw - sw) / 2; sy = (rh - sh) / 2;
-  } else {
-    ph = Math.max(1, Math.round(rh * (PRINT_W / rw)));
-    sw = rw; sh = rh; sx = 0; sy = 0;
-  }
-
+  if (!sourceSize()) return null;
+  const layout = lengthwisePrintLayout(PANEL_W, PANEL_H, PRINT_W);
+  const frame = renderPanelFrame(layout.height, layout.width); if (!frame) return null;
   const c = document.createElement('canvas');
-  c.width = PRINT_W; c.height = ph;
+  c.width = layout.width; c.height = layout.height;
   const x = c.getContext('2d');
-  x.fillStyle = '#fff'; x.fillRect(0, 0, PRINT_W, ph);
-  x.drawImage(rot, sx, sy, sw, sh, 0, 0, PRINT_W, ph);
-  return { bits: dither(grayscale(x.getImageData(0, 0, PRINT_W, ph)), PRINT_W, ph), h: ph };
+  x.fillStyle = '#fff'; x.fillRect(0, 0, layout.width, layout.height);
+  x.translate(layout.width, 0);
+  x.rotate(Math.PI / 2);                  // clockwise: short edge lies across the head
+  x.drawImage(frame, 0, 0, layout.height, layout.width);
+  return {
+    bits: dither(grayscale(x.getImageData(0, 0, layout.width, layout.height)), layout.width, layout.height),
+    h: layout.height
+  };
 }
 
 /* ---------- rendering ---------- */

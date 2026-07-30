@@ -24,6 +24,8 @@ after tests pass.
 - Hosted emulator with a 264×176 landscape view, automatically aligned webcam
   input, tap-to-freeze and hold-to-print shutter gesture, d-pad controls, print
   animation, capture library and fault injection.
+- Lengthwise print layout rotates the captured landscape frame 90° so its short
+  edge fills the 384-dot head and the 3:2 image prints at 384×576 dots.
 - Browser Floyd–Steinberg dithering is isolated in `docs/dither.js`; parity tests
   compare fixed grayscale patterns against Pillow's device pipeline.
 - Responsive project dashboard links the emulator, key files, current work,

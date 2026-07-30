@@ -1,8 +1,8 @@
 {
-  "updated": "2026-07-30T14:46:40Z",
+  "updated": "2026-07-30T14:57:07Z",
   "now": {
-    "task": "Landscape emulator capture flow ready for feedback",
-    "detail": "The hosted testing interface now uses a 264×176 landscape viewport, starts webcam feeds without rotation, freezes a still on shutter tap, and prints that still on a deliberate shutter hold.",
+    "task": "Lengthwise maximum-size printing ready for feedback",
+    "detail": "Captured landscape images rotate 90° for printing: the short edge fills the 384-dot print head and the long edge runs with the paper as a 384×576 image.",
     "state": "active"
   },
   "next": [
@@ -38,6 +38,10 @@
     }
   ],
   "done": [
+    {
+      "task": "Lengthwise maximum-size print layout",
+      "note": "A landscape capture rotates 90° so its short edge spans the paper width and its long edge uses the feed direction."
+    },
     {
       "task": "Landscape emulator and capture gesture",
       "note": "Landscape panel, unrotated phone/webcam feed, instant still-frame capture on tap, and hold-to-print with accidental-tap suppression."
